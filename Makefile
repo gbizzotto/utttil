@@ -21,11 +21,11 @@ CFLAGS_debug = -g
 CFLAGS_release = -g -O3 -fno-omit-frame-pointer
 CFLAGS_final = -O3
 EXTRA_CFLAGS = 
-CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/boost -I$(DEPDIR)/Simple-WebSocket-Server -I$(DEPDIR)/abseil-cpp -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
+CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
 
 LD=$(CXX)
-LDFLAGS = -L$(DEPDIR)/boost/stage/lib
-LDLIBS = -pthread -lssl -lcrypto -lboost_program_options -lboost_filesystem 
+LDFLAGS = 
+LDLIBS = -pthread -lssl -lcrypto
 #-L$(DEPDIR)/abseil-cpp/build/absl/container/ -L$(DEPDIR)/abseil-cpp/build/absl/synchronization/ -L$(DEPDIR)/abseil-cpp/build/absl/time
 #-labsl_hashtablez_sampler -labsl_synchronization -labsl_time
 
@@ -111,12 +111,6 @@ clean:
 	rm -rf $(SRCDIR)/headers.hpp.gch
 	rm -rf perf.data*
 
-cleaner: clean
-	rm -rf $(DEPDIR)
-	-rm $(GENDIR)/server-noenc.key
-	-rm $(GENDIR)/server-noenc.csr
-	-rm $(GENDIR)/server-noenc.crt
-
 RED=\033[1;31m
 GREEN=\033[1;32m
 YELLOW=\033[1;33m
@@ -147,11 +141,6 @@ deps:
 ifeq ($(PLATFORM),Darwin)
 	brew install openssl coreutils
 endif
-	@mkdir -p $(DEPDIR)
-	@if [ ! -d $(DEPDIR)"/Simple-WebSocket-Server" ]; then \
-		echo "cloning https://gitlab.com/gabriel.bizzotto/Simple-WebSocket-Server.git into "$(DEPDIR); \
-		git clone -q --depth 1 https://gitlab.com/gabriel.bizzotto/Simple-WebSocket-Server.git $(DEPDIR)/Simple-WebSocket-Server ; \
-	fi
 	@if [ ! -d $(DEPDIR)"/abseil-cpp" ]; then \
 		echo "cloning https://github.com/abseil/abseil-cpp.git into "$(DEPDIR); \
 		git clone -q --branch 20200225.2 --depth 1 https://github.com/abseil/abseil-cpp.git $(DEPDIR)/abseil-cpp ; \
@@ -160,16 +149,6 @@ endif
 		cd build ; \
 		cmake .. ; \
 		$(MAKE) ; \
-	fi
-	@if [ ! -d $(DEPDIR)"/boost" ]; then \
-		git clone --single-branch --branch boost-1.73.0 --depth 1 https://github.com/boostorg/boost.git $(DEPDIR)/boost ; \
-		cd $(DEPDIR)/boost ; \
-		git checkout boost-1.73.0 ; \
-		git submodule update --init tools/build/ tools/boost_install libs/config libs/headers libs/io libs/system libs/any libs/predef libs/move libs/detail libs/type_index libs/throw_exception libs/core libs/assert libs/type_traits libs/container libs/container_hash libs/iterator libs/static_assert libs/mpl libs/intrusive libs/function libs/preprocessor libs/integer libs/lexical_cast libs/range libs/concept_check libs/utility libs/numeric libs/math libs/tokenizer libs/date_time libs/regex ; \
-		git submodule update --init libs/filesystem libs/circular_buffer libs/asio libs/bind libs/smart_ptr libs/array libs/program_options ; \
-		./bootstrap.sh ; \
-		./b2 --with-container --with-filesystem --with-program_options --with-date_time headers ; \
-		./b2 variant=release link=static architecture=x86 container filesystem program_options stage ; \
 	fi
 
 gen:
