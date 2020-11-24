@@ -8,9 +8,9 @@
 
 namespace utttil {
 
-struct default_tag {};
+struct fixed_string_default_tag {};
 
-template<size_t C, typename Tag=default_tag>
+template<size_t C, typename Tag=fixed_string_default_tag>
 struct fixed_string
 {
 	static const size_t Capacity = C;
