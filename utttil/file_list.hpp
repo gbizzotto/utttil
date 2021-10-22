@@ -6,8 +6,6 @@
 #include <algorithm>
 #include <filesystem>
 
-namespace fs = std::filesystem;
-
 namespace utttil {
 
 struct file_list : std::vector<std::string>
@@ -23,7 +21,7 @@ struct file_list : std::vector<std::string>
 	inline void list()
 	{
 		this->clear();
-		for(const auto & p: fs::directory_iterator(path))
+		for(const auto & p: std::filesystem::directory_iterator(path))
 			this->push_back(p.path().string());
 		std::sort(this->begin(), this->end());
 		current_file.clear();

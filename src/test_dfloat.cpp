@@ -90,10 +90,10 @@ bool test_comp()
 	return success;
 }
 
-struct       lot_count_tag{}; using       lot_count_t = utttil::unique_int<uint32_t,       lot_count_tag>;
-struct       rl_tag{}; using       round_lot_t = utttil::dfloat<  uint32_t, 4,       rl_tag>;
-struct quantity_tag{}; using        quantity_t = utttil::dfloat<  uint64_t, 4, quantity_tag>;
-struct   volume_tag{}; using          volume_t = utttil::dfloat<__int128_t, 5,   volume_tag>;
+struct lot_count_tag{}; using       lot_count_t = utttil::unique_int<  uint32_t,    lot_count_tag>;
+struct        rl_tag{}; using       round_lot_t = utttil::    dfloat<  uint32_t, 4,        rl_tag>;
+struct  quantity_tag{}; using        quantity_t = utttil::    dfloat<  uint64_t, 4,  quantity_tag>;
+struct    volume_tag{}; using          volume_t = utttil::    dfloat<__int128_t, 5,    volume_tag>;
 inline quantity_t operator*(const lot_count_t & left, const round_lot_t & right)
 {
 	return quantity_t(quantity_t::mantissa_t(left.value()) * right.mantissa

@@ -5,6 +5,8 @@
 #include <string_view>
 #include <cstring>
 #include <exception>
+#include <algorithm>
+#include <cassert>
 
 namespace utttil {
 

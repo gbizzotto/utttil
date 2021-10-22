@@ -25,7 +25,6 @@
 #include <deque>
 
 #include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/circular_buffer.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
