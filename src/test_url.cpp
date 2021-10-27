@@ -250,11 +250,6 @@ bool test_location()
 				"a/b/?a=1&b=2",
 				"file://a/b/",
 				"file://a/b/?a=1&b=2",
-				"tcp://127.0.0.1/a/b/",
-				"tcp://127.0.0.1:1234/a/b/",
-				"tcp://127.0.0.1:1234/a/b/?a=1&b=2",
-				"tcp://u@127.0.0.1:1234/a/b/?a=1&b=2",
-				"tcp://u:p@127.0.0.1:1234/a/b/?a=1&b=2",
 			};
 		for (const char * u : urls)
 		{
@@ -265,8 +260,26 @@ bool test_location()
 	{
 		const char *urls[] =
 			{
+				"/a/b/",
+				"/a/b/?a=1&b=2",
+				"file:///a/b/",
+				"file:///a/b/?a=1&b=2",
+				"tcp://127.0.0.1/a/b/",
+				"tcp://127.0.0.1:1234/a/b/",
+				"tcp://127.0.0.1:1234/a/b/?a=1&b=2",
+				"tcp://u@127.0.0.1:1234/a/b/?a=1&b=2",
+				"tcp://u:p@127.0.0.1:1234/a/b/?a=1&b=2",
+			};
+		for (const char * u : urls)
+		{
+			utttil::url url(u);
+			ASSERT_MSG_ACT(url.location, ==, "/a/b/", u, return false); 
+		}
+	}
+	{
+		const char *urls[] =
+			{
 				"tcp://127.0.0.1",
-				"tcp://127.0.0.1/",
 				"tcp://u:p@127.0.0.1?a=1&b=2",
 				"tcp://127.0.0.1?a=1&b=2",
 				"tcp://127.0.0.1:1234",
@@ -276,6 +289,17 @@ bool test_location()
 		{
 			utttil::url url(u);
 			ASSERT_MSG_ACT(url.location, ==, "", u, return false); 
+		}
+	}
+	{
+		const char *urls[] =
+			{
+				"tcp://127.0.0.1/",
+			};
+		for (const char * u : urls)
+		{
+			utttil::url url(u);
+			ASSERT_MSG_ACT(url.location, ==, "/", u, return false); 
 		}
 	}
 	return true;

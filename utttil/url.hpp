@@ -57,7 +57,7 @@ struct url_
 		{
 			pos = str.find('/');
 			if (pos != STR::npos) {
-				location = str.substr(pos+1);;
+				location = str.substr(pos);
 				str = str.substr(0, pos);
 			}
 
