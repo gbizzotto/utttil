@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 
@@ -19,28 +20,21 @@ struct ws_socket : interface<CustomData>
 
 	tcp::resolver resolver;
 	
-	ws_socket(std::shared_ptr<boost::asio::io_context> & context)
+	ws_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
 		, stream(*this->io_context)
-		, resolver(*this->io_context)
-	{
-		this->recv_buffer.reserve(1500);
-	}
-	ws_socket(std::shared_ptr<boost::asio::io_context> && context)
-		: interface<CustomData>(context)
-		, stream(*this->io_context)
-		, resolver(*this->io_context)
-	{
-		this->recv_buffer.reserve(1500);
-	}
-	ws_socket()
-		: stream(*this->io_context)
 		, resolver(*this->io_context)
 	{
 		this->recv_buffer.reserve(1500);
 	}
 	virtual bool is_null_io() const override { return false; }
 
+	virtual void close() override
+	{
+		if (stream.is_open())
+			stream.close(boost::beast::websocket::close_reason());
+	}
+	
 	auto & get_socket()
 	{
 		return stream;
@@ -55,7 +49,7 @@ struct ws_socket : interface<CustomData>
 		auto endpoints = resolver.resolve(host, port, ec);
 
         if(ec) {
-            std::cout << "client couldnt resolve" << std::endl;
+            //std::cout << "client couldnt resolve" << std::endl;
             return false;
         }
 
@@ -66,7 +60,7 @@ struct ws_socket : interface<CustomData>
         boost::beast::get_lowest_layer(this_sptr->stream).connect(endpoints, ec);
 
         if(ec) {
-            std::cout << "client couldnt connect" << std::endl;
+            //std::cout << "client couldnt connect" << std::endl;
             return false;
         }
 
@@ -93,7 +87,7 @@ struct ws_socket : interface<CustomData>
         boost::beast::websocket::response_type res;
         this_sptr->stream.handshake(res, host_, target_, ec);
         if(ec) {
-            std::cout << "client couldnt handshake because " << ec.message() << std::endl;
+            //std::cout << "client couldnt handshake because " << ec.message() << std::endl;
             return false;
         }
         this_sptr->async_read();
@@ -108,8 +102,8 @@ struct ws_socket : interface<CustomData>
 		resolver.async_resolve(host, port,
 			[this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results) mutable
 			{
-		        if(ec)
-		            std::cout << "client couldnt resolve" << std::endl;
+		        //if(ec)
+		        //    std::cout << "client couldnt resolve" << std::endl;
 
 		        // Set the timeout for the operation
 		        boost::beast::get_lowest_layer(this_sptr->stream).expires_after(std::chrono::seconds(30));
@@ -118,8 +112,8 @@ struct ws_socket : interface<CustomData>
 		        boost::beast::get_lowest_layer(this_sptr->stream).async_connect(results,
 		        	[this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type::endpoint_type ep) mutable
 		        	{
-				        if(ec)
-				            std::cout << "client couldnt connect" << std::endl;
+				        //if(ec)
+				        //    std::cout << "client couldnt connect" << std::endl;
 
 				        // Turn off the timeout on the tcp_stream, because
 				        // the websocket stream has its own timeout system.
@@ -144,8 +138,8 @@ struct ws_socket : interface<CustomData>
 				        this_sptr->stream.async_handshake(host_, target_,
 				        	[this_sptr](boost::beast::error_code ec) mutable
 				        	{
-						        if(ec)
-						            std::cout << "client couldnt handshake because " << ec.message() << std::endl;
+						        //if(ec)
+						        //    std::cout << "client couldnt handshake because " << ec.message() << std::endl;
 						        this_sptr->async_read();
 				        	});
 		        	});
@@ -175,7 +169,6 @@ struct ws_socket : interface<CustomData>
 	{
 		if (error)
 		{
-			std::cout << "client err" << std::endl;
 			close(error.message());
 			return;
 		}
@@ -215,16 +208,9 @@ struct ws_socket : interface<CustomData>
 };
 
 template<typename CustomData=int>
-std::shared_ptr<ws_socket<CustomData>> make_ws_socket()
-{ return std::make_shared<ws_socket<CustomData>>(); }
-
-template<typename CustomData=int>
-std::shared_ptr<ws_socket<CustomData>> make_ws_socket(std::shared_ptr<boost::asio::io_context> & context)
-{ return std::make_shared<ws_socket<CustomData>>(context); }
-
-template<typename CustomData=int>
-std::shared_ptr<ws_socket<CustomData>> make_ws_socket(std::shared_ptr<boost::asio::io_context> && context)
-{ return std::make_shared<ws_socket<CustomData>>(context); }
-
+std::shared_ptr<ws_socket<CustomData>> make_ws_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
+{
+	return std::make_shared<ws_socket<CustomData>>(context);
+}
 
 }} // namespace

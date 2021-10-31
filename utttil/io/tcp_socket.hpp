@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 
+
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/bind/bind.hpp>
@@ -26,20 +27,9 @@ struct tcp_socket : interface<CustomData>
     tcp::socket socket;
 	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
 	
-	tcp_socket(std::shared_ptr<boost::asio::io_context> & context)
+	tcp_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
 		, socket(*this->io_context)
-	{
-		this->recv_buffer.reserve(1500);
-	}
-	tcp_socket(std::shared_ptr<boost::asio::io_context> && context)
-		: interface<CustomData>(context)
-		, socket(*this->io_context)
-	{
-		this->recv_buffer.reserve(1500);
-	}
-	tcp_socket()
-		: socket(*this->io_context)
 	{
 		this->recv_buffer.reserve(1500);
 	}
@@ -58,17 +48,18 @@ struct tcp_socket : interface<CustomData>
 		this->on_connect(std::static_pointer_cast<tcp_socket<CustomData>>(this->shared_from_this()));
 		async_read();
 	}
-	void close()
+	virtual void close() override
 	{
-		socket.close();
+		if (socket.is_open())
+			socket.close();
 		this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
 	}
 
 	void async_read()
 	{
-		size_t available_size = 1500 - this->recv_buffer.size();
+		size_t available_size = this->recv_buffer.capacity() - this->recv_buffer.size();
 		char * ok = &this->recv_buffer[this->recv_buffer.size()];
-		this->recv_buffer.resize(1500);
+		this->recv_buffer.resize(this->recv_buffer.capacity());
 		socket.async_read_some(
 				boost::asio::buffer(ok, available_size),
 				boost::bind(&tcp_socket::handle_read, std::static_pointer_cast<tcp_socket>(this->shared_from_this()),
@@ -84,7 +75,7 @@ struct tcp_socket : interface<CustomData>
 			close();
 			return;
 		}
-		this->recv_buffer.resize(1500 - expected + bytes_transferred);
+		this->recv_buffer.resize(this->recv_buffer.capacity() - expected + bytes_transferred);
 		if (bytes_transferred)
 			this->on_message(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
 		async_read();
@@ -119,17 +110,10 @@ struct tcp_socket : interface<CustomData>
 	}
 };
 
-
 template<typename CustomData=int>
-std::shared_ptr<tcp_socket<CustomData>> make_tcp_socket()
-{ return std::make_shared<tcp_socket<CustomData>>(); }
-
-template<typename CustomData=int>
-std::shared_ptr<tcp_socket<CustomData>> make_tcp_socket(std::shared_ptr<boost::asio::io_context> & context)
-{ return std::make_shared<tcp_socket<CustomData>>(context); }
-
-template<typename CustomData=int>
-std::shared_ptr<tcp_socket<CustomData>> make_tcp_socket(std::shared_ptr<boost::asio::io_context> && context)
-{ return std::make_shared<tcp_socket<CustomData>>(context); }
+std::shared_ptr<tcp_socket<CustomData>> make_tcp_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
+{
+	return std::make_shared<tcp_socket<CustomData>>(context);
+}
 
 }} // namespaces

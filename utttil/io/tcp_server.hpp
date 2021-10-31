@@ -26,20 +26,18 @@ struct tcp_server : interface<CustomData>
 
 	tcp::acceptor acceptor;
 
-	tcp_server(int port, std::shared_ptr<boost::asio::io_context> & context)
+	tcp_server(int port, std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
-		, acceptor(*this->io_context, tcp::endpoint(tcp::v4(), port))
-	{}
-	tcp_server(int port, std::shared_ptr<boost::asio::io_context> && context)
-		: interface<CustomData>(context)
-		, acceptor(*this->io_context, tcp::endpoint(tcp::v4(), port))
-	{}
-	tcp_server(int port)
-		: interface<CustomData>(std::make_shared<boost::asio::io_context>())
 		, acceptor(*this->io_context, tcp::endpoint(tcp::v4(), port))
 	{}
 	virtual bool is_null_io() const override { return false; }
 	
+	virtual void close() override
+	{
+		if (acceptor.is_open())
+			acceptor.close();
+	}
+
 	void async_accept()
 	{
 		auto new_connection_sptr = std::make_shared<Connection>(this->io_context);
@@ -59,15 +57,9 @@ struct tcp_server : interface<CustomData>
 };
 
 template<typename CustomData=int>
-std::shared_ptr<tcp_server<CustomData>> make_tcp_server(int port)
-{ return std::make_shared<tcp_server<CustomData>>(port); }
-
-template<typename CustomData=int>
-std::shared_ptr<tcp_server<CustomData>> make_tcp_server(int port, std::shared_ptr<boost::asio::io_context> & context)
-{ return std::make_shared<tcp_server<CustomData>>(port, context); }
-
-template<typename CustomData=int>
-std::shared_ptr<tcp_server<CustomData>> make_tcp_server(int port, std::shared_ptr<boost::asio::io_context> && context)
-{ return std::make_shared<tcp_server<CustomData>>(port, context); }
+std::shared_ptr<tcp_server<CustomData>> make_tcp_server(int port, std::shared_ptr<boost::asio::io_context> context = nullptr)
+{
+	return std::make_shared<tcp_server<CustomData>>(port, context);
+}
 
 }} // namespace

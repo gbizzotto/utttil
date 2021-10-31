@@ -17,16 +17,9 @@ struct ws_server_socket : interface<CustomData>
 	boost::beast::websocket::stream<boost::beast::tcp_stream> socket;
 	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
 
-	ws_server_socket(std::shared_ptr<boost::asio::io_context> & context)
+	ws_server_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
 		, socket(*interface<CustomData>::io_context)
-	{}
-	ws_server_socket(std::shared_ptr<boost::asio::io_context> && context)
-		: interface<CustomData>(context)
-		, socket(*interface<CustomData>::io_context)
-	{}
-	ws_server_socket()
-		: socket(*this->io_context)
 	{}
 	void init()
 	{
@@ -48,6 +41,12 @@ struct ws_server_socket : interface<CustomData>
 	}
 	virtual bool is_null_io() const override { return false; }
 
+	virtual void close() override
+	{
+		if (socket.is_open())
+			socket.close(boost::beast::websocket::close_reason());
+	}
+
 	boost::asio::ip::tcp::socket & get_tcp_socket()
 	{
 		return socket.next_layer().socket();
@@ -58,8 +57,8 @@ struct ws_server_socket : interface<CustomData>
 		auto this_sptr = std::static_pointer_cast<ws_server_socket>(this->shared_from_this());
 		socket.async_accept([this_sptr](boost::beast::error_code const & ec)
 			{
-				if(ec)
-					std::cout << "server_socket error: " << ec.message() << std::endl;
+				//if(ec)
+				//	std::cout << "server_socket error: " << ec.message() << std::endl;
 				this_sptr->async_read();
 			});
 	}
