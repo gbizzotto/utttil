@@ -33,6 +33,7 @@ struct ws_socket : interface<CustomData>
 	{
 		if (stream.is_open())
 			stream.close(boost::beast::websocket::close_reason());
+		this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
 	}
 	
 	auto & get_socket()
@@ -146,12 +147,6 @@ struct ws_socket : interface<CustomData>
 			});
 	}
 
-	void close(std::string reason)
-	{
-		stream.close(boost::beast::websocket::close_reason(reason));
-		this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
-	}
-
 	void async_read()
 	{
 		size_t available_size = 1500 - this->recv_buffer.size();
@@ -169,7 +164,10 @@ struct ws_socket : interface<CustomData>
 	{
 		if (error)
 		{
-			close(error.message());
+			if (error != boost::beast::websocket::error::closed)
+				close();
+			else
+				this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
 			return;
 		}
 		this->recv_buffer.resize(1500 - expected + bytes_transferred);
@@ -196,7 +194,10 @@ struct ws_socket : interface<CustomData>
 	{
 		if (error)
 		{
-			close(error.message());
+			if (error != boost::beast::websocket::error::closed)
+				close();
+			else
+				this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
 			return;
 		}
 		auto send_buffers_proxy = send_buffers.lock();

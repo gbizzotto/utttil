@@ -7,7 +7,6 @@
 #include <vector>
 
 #include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
 
 #include "interface.hpp"
 #include "tcp_socket.hpp"

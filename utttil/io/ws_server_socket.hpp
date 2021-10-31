@@ -45,6 +45,7 @@ struct ws_server_socket : interface<CustomData>
 	{
 		if (socket.is_open())
 			socket.close(boost::beast::websocket::close_reason());
+		this->on_close(std::static_pointer_cast<ws_server_socket>(this->shared_from_this()));
 	}
 
 	boost::asio::ip::tcp::socket & get_tcp_socket()
@@ -59,7 +60,8 @@ struct ws_server_socket : interface<CustomData>
 			{
 				//if(ec)
 				//	std::cout << "server_socket error: " << ec.message() << std::endl;
-				this_sptr->async_read();
+				if (ec != boost::beast::websocket::error::closed)
+					this_sptr->async_read();
 			});
 	}
 
@@ -81,9 +83,12 @@ struct ws_server_socket : interface<CustomData>
 		this->recv_buffer.resize(1500 - expected + bytes_transferred);
 		if (bytes_transferred)
 			this->on_message(std::static_pointer_cast<ws_server_socket>(this->shared_from_this()));
-		if(ec == boost::beast::websocket::error::closed)
+		if (ec)
 		{
-			this->on_close(std::static_pointer_cast<ws_server_socket>(this->shared_from_this()));
+			if (ec != boost::beast::websocket::error::closed)
+				close();
+			else
+				this->on_close(std::static_pointer_cast<ws_server_socket>(this->shared_from_this()));
 			return;
 		}
 		async_read();

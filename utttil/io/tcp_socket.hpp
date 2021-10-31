@@ -5,7 +5,6 @@
 #include <vector>
 #include <functional>
 
-
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/bind/bind.hpp>
@@ -72,7 +71,10 @@ struct tcp_socket : interface<CustomData>
 	{
 		if (error)
 		{
-			close();
+			if (error != boost::asio::error::eof)
+				close();
+			else
+				this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
 			return;
 		}
 		this->recv_buffer.resize(this->recv_buffer.capacity() - expected + bytes_transferred);
@@ -100,7 +102,10 @@ struct tcp_socket : interface<CustomData>
 	{
 		if (error)
 		{
-			close();
+			if (error != boost::asio::error::eof)
+				close();
+			else
+				this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
 			return;
 		}
 		auto send_buffers_proxy = send_buffers.lock();
