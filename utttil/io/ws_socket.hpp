@@ -1,5 +1,7 @@
 #pragma once
 
+#include "headers.hpp"
+
 #include <iostream>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
@@ -18,12 +20,10 @@ struct ws_socket : interface<CustomData>
 
 	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
 
-	tcp::resolver resolver;
 	
 	ws_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
 		, stream(*this->io_context)
-		, resolver(*this->io_context)
 	{
 		this->recv_buffer.reserve(1500);
 	}
@@ -35,10 +35,10 @@ struct ws_socket : interface<CustomData>
 			stream.close(boost::beast::websocket::close_reason());
 		this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
 	}
-	
-	auto & get_socket()
+
+	boost::asio::ip::tcp::socket & get_tcp_socket()
 	{
-		return stream;
+		return this->stream.next_layer().socket();
 	}
 
 	bool open(const char * host, const char * port, char const * target, int version)
@@ -47,6 +47,8 @@ struct ws_socket : interface<CustomData>
 		std::string host_ = host;
 		std::string target_ = target;
     	auto this_sptr = std::static_pointer_cast<ws_socket<CustomData>>(this->shared_from_this());
+
+		tcp::resolver resolver(*this->io_context);
 		auto endpoints = resolver.resolve(host, port, ec);
 
         if(ec) {
@@ -100,8 +102,10 @@ struct ws_socket : interface<CustomData>
 		std::string host_ = host;
 		std::string target_ = target;
     	auto this_sptr = std::static_pointer_cast<ws_socket<CustomData>>(this->shared_from_this());
-		resolver.async_resolve(host, port,
-			[this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results) mutable
+
+		auto resolver_sptr = std::make_shared<tcp::resolver>(*this->io_context);
+		resolver_sptr->async_resolve(host, port,
+			[resolver_sptr,this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results) mutable
 			{
 		        //if(ec)
 		        //    std::cout << "client couldnt resolve" << std::endl;
@@ -149,9 +153,9 @@ struct ws_socket : interface<CustomData>
 
 	void async_read()
 	{
-		size_t available_size = 1500 - this->recv_buffer.size();
+		size_t available_size = this->recv_buffer.capacity() - this->recv_buffer.size();
 		char * ok = &this->recv_buffer[this->recv_buffer.size()];
-		this->recv_buffer.resize(1500);
+		this->recv_buffer.resize(this->recv_buffer.capacity());
 		stream.async_read_some(
 				boost::asio::buffer(ok, available_size),
 				boost::bind(&ws_socket::handle_read, std::static_pointer_cast<ws_socket>(this->shared_from_this()),
@@ -162,6 +166,26 @@ struct ws_socket : interface<CustomData>
 	}
 	void handle_read(const boost::system::error_code & error, size_t bytes_transferred, size_t expected)
 	{
+		this->recv_buffer.resize(this->recv_buffer.capacity() - expected + bytes_transferred);
+		if (bytes_transferred)
+		{
+			// transform 4-bits-per-byte data into 8-bits-per-byte data
+			auto itw = std::next(this->recv_buffer.begin(),this->recv_buffer.size()-(bytes_transferred));
+			for (auto it=std::next(this->recv_buffer.begin(),this->recv_buffer.size()-(bytes_transferred))
+				    ,end=std::next(this->recv_buffer.begin(),this->recv_buffer.size())
+				; it!=end
+				; ++itw )
+			{
+				*itw = ((*it)&0xF) << 4;
+				++it;
+				*itw += (*it)&0xF; 
+				++it;
+			}
+			this->recv_buffer.resize(this->recv_buffer.capacity() - expected + bytes_transferred/2);
+			this->recv_buffer.erase(itw, this->recv_buffer.end());
+
+			this->on_message(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
+		}
 		if (error)
 		{
 			if (error != boost::beast::websocket::error::closed)
@@ -170,18 +194,23 @@ struct ws_socket : interface<CustomData>
 				this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
 			return;
 		}
-		this->recv_buffer.resize(1500 - expected + bytes_transferred);
-		if (bytes_transferred)
-			this->on_message(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
 		async_read();
 	}
 
 	void async_write(std::vector<char> && data)
 	{
+		// transform 8-bits-per-byte data into 4-bits-per-byte data
+		std::vector<char> hex_data;
+		hex_data.reserve(data.size()*2);
+		for(char c : data)
+		{
+			hex_data.push_back((c>>4) + 0b01000000);
+			hex_data.push_back((c&0xF) + 0b01000000);
+		}
 		std::vector<char> * owned_buffer;
 		{
 			auto send_buffers_proxy = send_buffers.lock();
-			send_buffers_proxy->emplace_back(std::move(data));
+			send_buffers_proxy->emplace_back(std::move(hex_data));
 			owned_buffer = & send_buffers_proxy->back();
 		}
 		stream.async_write(
