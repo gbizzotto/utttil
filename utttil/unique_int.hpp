@@ -11,14 +11,14 @@ struct unique_int
 	using T = Type;
 	using tag = Tag;
 
-    T t;
+	T t;
 	unique_int() = default;
-    explicit unique_int(const T& t_) : t(t_) {}
-    unique_int(const unique_int & other) : t(other.t) {}
-    unique_int& operator=(const unique_int & rhs) { t = rhs.t; return *this; }
-    unique_int& operator=(const T& rhs) { t = rhs; return *this; }
+	explicit unique_int(const T& t_) : t(t_) {}
+	unique_int(const unique_int & other) : t(other.t) {}
+	unique_int& operator=(const unique_int & rhs) { t = rhs.t; return *this; }
+	unique_int& operator=(const T& rhs) { t = rhs; return *this; }
 	explicit operator const T&() const { return t; }
-    explicit operator T&() { return t; }
+	explicit operator T&() { return t; }
 	template<typename To>
 	explicit operator To() const { return t; }
 	T value() const { return t; }

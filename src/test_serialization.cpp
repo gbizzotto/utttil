@@ -87,7 +87,7 @@ inline std::ostream & operator<<(std::ostream & out, const  NewOrder & new_order
 inline bool operator==(const NewOrder & left, const NewOrder & right)
 {
 	return left.account_id == right.account_id
-		&& left.instrument_id == right.instrument_id
+	    && left.instrument_id == right.instrument_id
 	    && left.is_sell == right.is_sell
 	    && left.is_limit == right.is_limit
 	    && left.is_stop == right.is_stop
@@ -121,10 +121,10 @@ inline bool operator==(const Msg & left, const Msg & right)
 {
 	return left.type == right.type
 	    && left.seq == right.seq
-		&& left.account_id == right.account_id
-		&& left.req_id == right.req_id
-		&& left.new_order == right.new_order
-		;
+	    && left.account_id == right.account_id
+	    && left.req_id == right.req_id
+	    && left.new_order == right.new_order
+	    ;
 }
 inline bool operator!=(const Msg & left, const Msg & right)
 {

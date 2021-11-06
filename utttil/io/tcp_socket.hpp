@@ -25,7 +25,7 @@ struct tcp_socket : interface<CustomData>
 {
 	using ConnectionData = CustomData;
 
-    tcp::socket socket;
+	tcp::socket socket;
 	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
 	bool is_open = false;
 	
@@ -45,7 +45,7 @@ struct tcp_socket : interface<CustomData>
 	void open(const char * host, const char * port)
 	{
 		tcp::resolver resolver(*this->io_context);
-    	auto endpoints = resolver.resolve(host, port);
+		auto endpoints = resolver.resolve(host, port);
 		boost::asio::connect(socket, endpoints);
 		is_open = true;
 		this->on_connect(std::static_pointer_cast<tcp_socket<CustomData>>(this->shared_from_this()));
@@ -56,7 +56,8 @@ struct tcp_socket : interface<CustomData>
 		if (is_open && socket.is_open())
 		{
 			is_open = false;
-			socket.close();
+			boost::system::error_code ec;
+			socket.close(ec);
 			this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
 		}
 	}

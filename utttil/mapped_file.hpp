@@ -12,9 +12,9 @@ namespace utttil {
 
 inline long FdGetFileSize(int fd)
 {
-    struct stat stat_buf;
-    int rc = fstat(fd, &stat_buf);
-    return rc == 0 ? stat_buf.st_size : -1;
+	struct stat stat_buf;
+	int rc = fstat(fd, &stat_buf);
+	return rc == 0 ? stat_buf.st_size : -1;
 }
 
 struct mmapped_file_read
@@ -63,7 +63,7 @@ struct mmapped_file_write
 #ifdef __linux__
 		if (fallocate(fd, 0, 0, size) == -1)
 #else
-    	if (ftruncate(fd, size) == -1)
+		if (ftruncate(fd, size) == -1)
 #endif
 		{
 			::close(fd);
