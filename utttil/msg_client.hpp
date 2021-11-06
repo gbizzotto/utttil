@@ -10,7 +10,7 @@ namespace utttil {
 template<typename InMsg, typename OutMsg, typename CustomData=int>
 struct msg_client : msg_peer<InMsg,OutMsg,CustomData>
 {
-	using ConnectionSPTR = typename msg_peer<InMsg,OutMsg,CustomData>::ConnectionSPTR;
+	using ConnectionSPTR = typename msg_peer<InMsg,OutMsg,CustomData>::ThisSPTR;
 
 	void connect(const utttil::url url, std::shared_ptr<boost::asio::io_context> io_context = nullptr)
 	{
@@ -19,9 +19,10 @@ struct msg_client : msg_peer<InMsg,OutMsg,CustomData>
 		this->interface = utttil::io::connect(url, io_context);
 
 		auto this_sptr = this->shared_from_this();
-		this->interface->on_message = [this_sptr](typename utttil::io::interface<CustomData>::ConnectionSPTR conn_sptr)
+		this->interface->on_message = [this_sptr](auto)
 			{
-				this_sptr->decode_recvd(conn_sptr);
+				std::cout << "ok client" << std::endl;
+				this_sptr->decode_recvd();
 			};
 	}
 };

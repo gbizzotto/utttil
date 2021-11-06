@@ -12,16 +12,17 @@ namespace utttil {
 template<typename InMsg, typename OutMsg, typename CustomData=int>
 struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>>
 {
-	using ConnectionSPTR = typename utttil::io::interface<CustomData>::ConnectionSPTR;
-	using CallbackOnConnect = std::function<void(ConnectionSPTR)>;
-	using CallbackOnClose   = std::function<void(ConnectionSPTR)>;
-	using CallbackOnMessage = std::function<void(ConnectionSPTR, std::unique_ptr<InMsg>)>;
+	using ThisSPTR = std::shared_ptr<msg_peer<InMsg,OutMsg,CustomData>>;
+	using UnderlyingSPTR = typename utttil::io::interface<CustomData>::ConnectionSPTR;
+	using CallbackOnConnect = std::function<void(ThisSPTR)>;
+	using CallbackOnClose   = std::function<void(ThisSPTR)>;
+	using CallbackOnMessage = std::function<void(ThisSPTR, std::unique_ptr<InMsg>)>;
 
 	std::shared_ptr<utttil::io::interface<CustomData>> interface;
-	utttil::synchronized<std::deque<std::pair<ConnectionSPTR,std::unique_ptr<InMsg>>>> inbox;
+	utttil::synchronized<std::deque<std::pair<ThisSPTR,std::unique_ptr<InMsg>>>> inbox;
 	
-	CallbackOnConnect on_connect = [](ConnectionSPTR){};
-	CallbackOnConnect on_close   = [](ConnectionSPTR){};
+	CallbackOnConnect on_connect = [](ThisSPTR){};
+	CallbackOnConnect on_close   = [](ThisSPTR){};
 	CallbackOnMessage on_message;
 
 	bool go_on = true;
@@ -40,9 +41,10 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 		interface->join();
 	}
 
-	void decode_recvd(ConnectionSPTR & conn_sptr)
+	void decode_recvd()
 	{
-		auto & data = conn_sptr->recv_buffer;
+		std::cout << "decode " << interface->recv_buffer.size() << std::endl;
+		auto & data = interface->recv_buffer;
 		if (data.size() < 2)
 			return;
 		size_t size = *data.begin() * 256 + *std::next(data.begin());
@@ -59,16 +61,21 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 			close();
 			return;
 		}
+		auto this_sptr = this->shared_from_this();
 		if (on_message)
-			on_message(conn_sptr, std::move(resp));
+			std::cout << "on message()" << std::endl;
+		else
+			std::cout << "inboks" << std::endl;
+		if (on_message)
+			on_message(this_sptr, std::move(resp));
 		else
 		{
-			inbox.lock()->emplace_back(conn_sptr, std::move(resp));
+			inbox.lock()->emplace_back(this_sptr, std::move(resp));
 			inbox.notify_one();
 		}
 	}
 
-	std::pair<ConnectionSPTR, std::unique_ptr<InMsg>> read()
+	std::pair<ThisSPTR,std::unique_ptr<InMsg>> read()
 	{
 		auto inbox_proxy = inbox.wait_for_notification([this](auto & inbox){ return go_on == false || inbox.size()!=0; });
 		if ( ! go_on)
