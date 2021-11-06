@@ -51,7 +51,7 @@ bool test(std::string url)
 int main()
 {
 	bool success = test("ws://127.0.0.1:1234/")
-		//&& test("tcp://127.0.0.1:1234/")
+		&& test("tcp://127.0.0.1:1234/")
 		;
 
 	return success?0:1;

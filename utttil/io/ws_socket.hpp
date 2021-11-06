@@ -16,10 +16,9 @@ struct ws_socket : interface<CustomData>
 {
 	using ConnectionData = CustomData;
 
-    boost::beast::websocket::stream<boost::beast::tcp_stream> stream;
-
+	boost::beast::websocket::stream<boost::beast::tcp_stream> stream;
 	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
-
+	bool is_open = false;
 	
 	ws_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
@@ -31,9 +30,13 @@ struct ws_socket : interface<CustomData>
 
 	virtual void close() override
 	{
-		if (stream.is_open())
-			stream.close(boost::beast::websocket::close_reason());
-		this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
+		if (is_open && stream.is_open())
+		{
+			is_open = false;
+			boost::beast::error_code ec;
+			stream.close(boost::beast::websocket::close_reason(), ec);
+			this->on_close(this->shared_from_this());
+		}
 	}
 
 	boost::asio::ip::tcp::socket & get_tcp_socket()
@@ -46,108 +49,111 @@ struct ws_socket : interface<CustomData>
 		boost::system::error_code ec;
 		std::string host_ = host;
 		std::string target_ = target;
-    	auto this_sptr = std::static_pointer_cast<ws_socket<CustomData>>(this->shared_from_this());
+		auto this_sptr = std::static_pointer_cast<ws_socket<CustomData>>(this->shared_from_this());
 
 		tcp::resolver resolver(*this->io_context);
 		auto endpoints = resolver.resolve(host, port, ec);
 
-        if(ec) {
-            //std::cout << "client couldnt resolve" << std::endl;
-            return false;
-        }
+		if(ec) {
+			//std::cout << "client couldnt resolve" << std::endl;
+			return false;
+		}
 
-        // Set the timeout for the operation
-        boost::beast::get_lowest_layer(this_sptr->stream).expires_after(std::chrono::seconds(30));
+		// Set the timeout for the operation
+		boost::beast::get_lowest_layer(this_sptr->stream).expires_after(std::chrono::seconds(30));
 
-        // Make the connection on the IP address we get from a lookup
-        boost::beast::get_lowest_layer(this_sptr->stream).connect(endpoints, ec);
+		// Make the connection on the IP address we get from a lookup
+		boost::beast::get_lowest_layer(this_sptr->stream).connect(endpoints, ec);
 
-        if(ec) {
-            //std::cout << "client couldnt connect" << std::endl;
-            return false;
-        }
+		if(ec) {
+			//std::cout << "client couldnt connect" << std::endl;
+			return false;
+		}
 
-        // Turn off the timeout on the tcp_stream, because
-        // the websocket stream has its own timeout system.
-        boost::beast::get_lowest_layer(this_sptr->stream).expires_never();
+		// Turn off the timeout on the tcp_stream, because
+		// the websocket stream has its own timeout system.
+		boost::beast::get_lowest_layer(this_sptr->stream).expires_never();
 
-        // Set suggested timeout settings for the websocket
-        this_sptr->stream.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::client));
+		// Set suggested timeout settings for the websocket
+		this_sptr->stream.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::client));
 
-        // Set a decorator to change the User-Agent of the handshake
-        this_sptr->stream.set_option(boost::beast::websocket::stream_base::decorator(
-            [](boost::beast::websocket::request_type &req)
-            {
-                req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " utttil");
-            }));
+		// Set a decorator to change the User-Agent of the handshake
+		this_sptr->stream.set_option(boost::beast::websocket::stream_base::decorator(
+			[](boost::beast::websocket::request_type &req)
+			{
+				req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " utttil");
+			}));
 
-        // Update the host_ string. This will provide the value of the
-        // Host HTTP header during the WebSocket handshake.
-        // See https://tools.ietf.org/html/rfc7230#section-5.4
-        host_.append(":").append(port);
+		// Update the host_ string. This will provide the value of the
+		// Host HTTP header during the WebSocket handshake.
+		// See https://tools.ietf.org/html/rfc7230#section-5.4
+		host_.append(":").append(port);
 
-        // Perform the websocket handshake
-        boost::beast::websocket::response_type res;
-        this_sptr->stream.handshake(res, host_, target_, ec);
-        if(ec) {
-            //std::cout << "client couldnt handshake because " << ec.message() << std::endl;
-            return false;
-        }
-        this_sptr->async_read();
-        return true;
+		// Perform the websocket handshake
+		boost::beast::websocket::response_type res;
+		this_sptr->stream.handshake(res, host_, target_, ec);
+		if(ec) {
+			//std::cout << "client couldnt handshake because " << ec.message() << std::endl;
+			return false;
+		}
+
+		is_open = true;
+		this_sptr->async_read();
+		return true;
 	}
 
 	void async_open(const char * host, const char * port, char const * target, int version)
 	{
 		std::string host_ = host;
 		std::string target_ = target;
-    	auto this_sptr = std::static_pointer_cast<ws_socket<CustomData>>(this->shared_from_this());
+		auto this_sptr = std::static_pointer_cast<ws_socket<CustomData>>(this->shared_from_this());
 
 		auto resolver_sptr = std::make_shared<tcp::resolver>(*this->io_context);
 		resolver_sptr->async_resolve(host, port,
 			[resolver_sptr,this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type results) mutable
 			{
-		        //if(ec)
-		        //    std::cout << "client couldnt resolve" << std::endl;
+				//if(ec)
+				//	std::cout << "client couldnt resolve" << std::endl;
 
-		        // Set the timeout for the operation
-		        boost::beast::get_lowest_layer(this_sptr->stream).expires_after(std::chrono::seconds(30));
+				// Set the timeout for the operation
+				boost::beast::get_lowest_layer(this_sptr->stream).expires_after(std::chrono::seconds(30));
 
-		        // Make the connection on the IP address we get from a lookup
-		        boost::beast::get_lowest_layer(this_sptr->stream).async_connect(results,
-		        	[this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type::endpoint_type ep) mutable
-		        	{
-				        //if(ec)
-				        //    std::cout << "client couldnt connect" << std::endl;
+				// Make the connection on the IP address we get from a lookup
+				boost::beast::get_lowest_layer(this_sptr->stream).async_connect(results,
+					[this_sptr,host_,target_](boost::beast::error_code ec, boost::asio::ip::tcp::resolver::results_type::endpoint_type ep) mutable
+					{
+						//if(ec)
+						//	std::cout << "client couldnt connect" << std::endl;
 
-				        // Turn off the timeout on the tcp_stream, because
-				        // the websocket stream has its own timeout system.
-				        boost::beast::get_lowest_layer(this_sptr->stream).expires_never();
+						// Turn off the timeout on the tcp_stream, because
+						// the websocket stream has its own timeout system.
+						boost::beast::get_lowest_layer(this_sptr->stream).expires_never();
 
-				        // Set suggested timeout settings for the websocket
-				        this_sptr->stream.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::client));
+						// Set suggested timeout settings for the websocket
+						this_sptr->stream.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::client));
 
-				        // Set a decorator to change the User-Agent of the handshake
-				        this_sptr->stream.set_option(boost::beast::websocket::stream_base::decorator(
-				            [](boost::beast::websocket::request_type &req)
-				            {
-				                req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " utttil");
-				            }));
+						// Set a decorator to change the User-Agent of the handshake
+						this_sptr->stream.set_option(boost::beast::websocket::stream_base::decorator(
+						[](boost::beast::websocket::request_type &req)
+						{
+							req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " utttil");
+						}));
 
-				        // Update the host_ string. This will provide the value of the
-				        // Host HTTP header during the WebSocket handshake.
-				        // See https://tools.ietf.org/html/rfc7230#section-5.4
-				        host_.append(":").append(std::to_string(ep.port()));
+						// Update the host_ string. This will provide the value of the
+						// Host HTTP header during the WebSocket handshake.
+						// See https://tools.ietf.org/html/rfc7230#section-5.4
+						host_.append(":").append(std::to_string(ep.port()));
 
-				        // Perform the websocket handshake
-				        this_sptr->stream.async_handshake(host_, target_,
-				        	[this_sptr](boost::beast::error_code ec) mutable
-				        	{
-						        //if(ec)
-						        //    std::cout << "client couldnt handshake because " << ec.message() << std::endl;
-						        this_sptr->async_read();
-				        	});
-		        	});
+						// Perform the websocket handshake
+						this_sptr->stream.async_handshake(host_, target_,
+							[this_sptr](boost::beast::error_code ec) mutable
+							{
+								//if(ec)
+								//	std::cout << "client couldnt handshake because " << ec.message() << std::endl;
+								this_sptr->is_open = true;
+								this_sptr->async_read();
+							});
+					});
 			});
 	}
 

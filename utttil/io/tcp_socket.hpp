@@ -27,6 +27,7 @@ struct tcp_socket : interface<CustomData>
 
     tcp::socket socket;
 	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
+	bool is_open = false;
 	
 	tcp_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
@@ -46,14 +47,18 @@ struct tcp_socket : interface<CustomData>
 		tcp::resolver resolver(*this->io_context);
     	auto endpoints = resolver.resolve(host, port);
 		boost::asio::connect(socket, endpoints);
+		is_open = true;
 		this->on_connect(std::static_pointer_cast<tcp_socket<CustomData>>(this->shared_from_this()));
 		async_read();
 	}
 	virtual void close() override
 	{
-		if (socket.is_open())
+		if (is_open && socket.is_open())
+		{
+			is_open = false;
 			socket.close();
-		this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
+			this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
+		}
 	}
 
 	void async_read()
