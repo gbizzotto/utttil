@@ -38,15 +38,15 @@ struct ws_server : interface<CustomData>
 		auto new_connection_sptr = std::make_shared<Connection>(this->io_context);
 		acceptor.async_accept(new_connection_sptr->get_tcp_socket(), [new_connection_sptr,this](const boost::system::error_code & error)
 			{
-				if ( ! error)
-				{
-					new_connection_sptr->on_connect = this->on_connect;
-					new_connection_sptr->on_close   = this->on_close  ;
-					new_connection_sptr->on_message = this->on_message;
-					this->on_connect(new_connection_sptr);
-					new_connection_sptr->init();
-					async_accept();
-				}
+				if (error)
+					return;
+
+				new_connection_sptr->on_connect = this->on_connect;
+				new_connection_sptr->on_close   = this->on_close  ;
+				new_connection_sptr->on_message = this->on_message;
+				this->on_connect(new_connection_sptr);
+				new_connection_sptr->init();
+				async_accept();
 			});
 	}
 };
