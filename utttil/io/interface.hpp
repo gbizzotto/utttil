@@ -44,8 +44,8 @@ struct interface : public std::enable_shared_from_this<interface<CustomData>>
 	}
 	void async_run()
 	{
-		auto this_sptr = this->shared_from_this();
-		t = std::thread([this_sptr](){ this_sptr->run(); });
+		auto ioc = io_context;
+		t = std::thread([ioc](){ ioc->run(); });
 	}
 	void stop()
 	{
@@ -53,7 +53,8 @@ struct interface : public std::enable_shared_from_this<interface<CustomData>>
 	}
 	void join()
 	{
-		t.join();
+		if (t.joinable())
+			t.join();
 	}
 
 	virtual void async_write(std::vector<char> && data) {}
