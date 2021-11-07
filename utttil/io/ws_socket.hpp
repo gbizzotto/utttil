@@ -11,14 +11,35 @@
 namespace utttil {
 namespace io {
 
+template<typename T>
+struct async_write_callback_ws_t
+{
+	std::vector<char> data;
+	T t;
+	async_write_callback_ws_t(std::vector<char> && d, T t_)
+		: data(std::move(d))
+		, t(t_)
+	{}
+	void operator()(const boost::system::error_code & error, size_t bytes_transferred)
+	{
+		if (error)
+		{
+			if (error != boost::beast::websocket::error::closed)
+				t->close();
+			else
+				t->on_close(t);
+			return;
+		}
+	};
+};
+
+
 template<typename CustomData=int>
 struct ws_socket : interface<CustomData>
 {
 	using ConnectionData = CustomData;
 
 	boost::beast::websocket::stream<boost::beast::tcp_stream> stream;
-	utttil::synchronized<std::deque<std::vector<char>>> send_buffers;
-	bool is_open = false;
 	
 	ws_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
 		: interface<CustomData>(context)
@@ -30,9 +51,8 @@ struct ws_socket : interface<CustomData>
 
 	virtual void close() override
 	{
-		if (is_open && stream.is_open())
+		if (stream.is_open())
 		{
-			is_open = false;
 			boost::beast::error_code ec;
 			stream.close(boost::beast::websocket::close_reason(), ec);
 			this->on_close(this->shared_from_this());
@@ -97,7 +117,6 @@ struct ws_socket : interface<CustomData>
 			return false;
 		}
 
-		is_open = true;
 		this_sptr->async_read();
 		return true;
 	}
@@ -150,7 +169,6 @@ struct ws_socket : interface<CustomData>
 							{
 								//if(ec)
 								//	std::cout << "client couldnt handshake because " << ec.message() << std::endl;
-								this_sptr->is_open = true;
 								this_sptr->async_read();
 							});
 					});
@@ -213,32 +231,9 @@ struct ws_socket : interface<CustomData>
 			hex_data.push_back((c>>4) + 0b01000000);
 			hex_data.push_back((c&0xF) + 0b01000000);
 		}
-		std::vector<char> * owned_buffer;
-		{
-			auto send_buffers_proxy = send_buffers.lock();
-			send_buffers_proxy->emplace_back(std::move(hex_data));
-			owned_buffer = & send_buffers_proxy->back();
-		}
-		stream.async_write(
-			boost::asio::buffer(owned_buffer->data(), owned_buffer->size()),
-			boost::bind(&ws_socket::handle_write, std::static_pointer_cast<ws_socket>(this->shared_from_this()),
-				boost::asio::placeholders::error,
-				boost::asio::placeholders::bytes_transferred));
-	}
-	void handle_write(const boost::beast::error_code & error, size_t bytes_transferred)
-	{
-		if (error)
-		{
-			if (error != boost::beast::websocket::error::closed)
-				close();
-			else
-				this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
-			return;
-		}
-		auto send_buffers_proxy = send_buffers.lock();
-		std::vector<char> & owned_buffer = send_buffers_proxy->front();
-		assert(bytes_transferred == owned_buffer.size());
-		send_buffers_proxy->pop_front();
+		auto this_sptr = std::static_pointer_cast<ws_socket>(this->shared_from_this());
+		async_write_callback_ws_t callback(std::move(hex_data), this_sptr);
+		stream.async_write(boost::asio::buffer(callback.data.data(), callback.data.size()), callback);
 	}
 
 };
