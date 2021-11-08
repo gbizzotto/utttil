@@ -9,7 +9,8 @@
 
 #include <boost/asio.hpp>
 
-#include <utttil/url.hpp>
+#include "utttil/url.hpp"
+#include "utttil/no_init.hpp"
 
 namespace utttil {
 namespace io {
@@ -24,47 +25,24 @@ struct interface : public std::enable_shared_from_this<interface<CustomData>>
 	using CallbackOnClose   = std::function<void(ConnectionSPTR)>;
 	using CallbackOnMessage = std::function<void(ConnectionSPTR)>;
 
-	std::shared_ptr<boost::asio::io_context> io_context;
+	boost::asio::io_context & io_context;
 	ConnectionData connection_data;
-	std::vector<char> recv_buffer;
+	std::vector<utttil::no_init<char>> recv_buffer;
 	
 	CallbackOnConnect on_connect = [](ConnectionSPTR){};
 	CallbackOnConnect on_close   = [](ConnectionSPTR){};
 	CallbackOnMessage on_message = [](ConnectionSPTR){};
 
-	std::thread t;
-
-	interface(std::shared_ptr<boost::asio::io_context> context = nullptr)
-		: io_context(context ? context : std::make_shared<boost::asio::io_context>())
+	interface(boost::asio::io_context & ctx)
+		: io_context(ctx)
 	{}
-
-	void run()
+	virtual ~interface()
 	{
-		io_context->run();
-	}
-	void async_run()
-	{
-		auto ioc = io_context;
-		t = std::thread([ioc](){ ioc->run(); });
-	}
-	void stop()
-	{
-		io_context->stop();
-	}
-	void join()
-	{
-		if (t.joinable())
-			t.join();
+		close();
 	}
 
 	virtual void async_write(std::vector<char> && data) {}
-	virtual bool is_null_io() const { return true; }
 	virtual void close() {}
 };
-
-std::shared_ptr<interface<int>> make_null_io(std::shared_ptr<boost::asio::io_context> context = nullptr)
-{
-	return std::make_shared<interface<int>>(context);
-}
 
 }} // namespace

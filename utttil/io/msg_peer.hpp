@@ -3,11 +3,14 @@
 
 #include <memory>
 #include <deque>
+#include <functional>
 
-#include "io.hpp"
-#include "srlz.hpp"
+#include "utttil/io/interface.hpp"
+#include "utttil/srlz.hpp"
+#include "utttil/synchronized.hpp"
 
 namespace utttil {
+namespace io {
 
 template<typename InMsg, typename OutMsg, typename CustomData=int>
 struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>>
@@ -23,27 +26,23 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 	
 	CallbackOnConnect on_connect = [](ThisSPTR){};
 	CallbackOnConnect on_close   = [](ThisSPTR){};
-	CallbackOnMessage on_message;
+	CallbackOnMessage on_message; // when null, messages go to inbox
 
 	bool go_on = true;
+
+	~msg_peer()
+	{
+		close();
+	}
 
 	void close()
 	{
 		go_on = false;
 		interface->close();
 	}
-	void async_run()
-	{
-		interface->async_run();
-	}
-	void join()
-	{
-		interface->join();
-	}
 
 	void decode_recvd()
 	{
-		std::cout << "decode " << interface->recv_buffer.size() << std::endl;
 		auto & data = interface->recv_buffer;
 		if (data.size() < 2)
 			return;
@@ -62,10 +61,10 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 			return;
 		}
 		auto this_sptr = this->shared_from_this();
-		if (on_message)
-			std::cout << "on message()" << std::endl;
-		else
-			std::cout << "inboks" << std::endl;
+		//if (on_message)
+		//	std::cout << "on message()" << std::endl;
+		//else
+		//	std::cout << "inboks" << std::endl;
 		if (on_message)
 			on_message(this_sptr, std::move(resp));
 		else
@@ -106,5 +105,4 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 	}
 };
 
-
-} // namespace
+}} // namespace

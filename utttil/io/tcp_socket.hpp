@@ -49,13 +49,12 @@ struct tcp_socket : interface<CustomData>
 
 	tcp::socket socket;
 	
-	tcp_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
+	tcp_socket(boost::asio::io_context & context)
 		: interface<CustomData>(context)
-		, socket(*this->io_context)
+		, socket(this->io_context)
 	{
 		this->recv_buffer.reserve(1500);
 	}
-	virtual bool is_null_io() const override { return false; }
 
 	auto & get_socket()
 	{
@@ -64,7 +63,7 @@ struct tcp_socket : interface<CustomData>
 
 	void open(const char * host, const char * port)
 	{
-		tcp::resolver resolver(*this->io_context);
+		tcp::resolver resolver(this->io_context);
 		auto endpoints = resolver.resolve(host, port);
 		boost::asio::connect(socket, endpoints);
 		this->on_connect(std::static_pointer_cast<tcp_socket<CustomData>>(this->shared_from_this()));
@@ -72,18 +71,15 @@ struct tcp_socket : interface<CustomData>
 	}
 	virtual void close() override
 	{
-		if (socket.is_open())
-		{
-			boost::system::error_code ec;
-			socket.close(ec);
-			this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
-		}
+		boost::system::error_code ec;
+		this->socket.close(ec);
+		this->on_close(std::static_pointer_cast<tcp_socket>(this->shared_from_this()));
 	}
 
 	void async_read()
 	{
 		size_t available_size = this->recv_buffer.capacity() - this->recv_buffer.size();
-		char * ok = &this->recv_buffer[this->recv_buffer.size()];
+		char * ok = (char*) &this->recv_buffer[this->recv_buffer.size()];
 		this->recv_buffer.resize(this->recv_buffer.capacity());
 		socket.async_read_some(
 				boost::asio::buffer(ok, available_size),
@@ -118,7 +114,7 @@ struct tcp_socket : interface<CustomData>
 };
 
 template<typename CustomData=int>
-std::shared_ptr<tcp_socket<CustomData>> make_tcp_socket(std::shared_ptr<boost::asio::io_context> context = nullptr)
+std::shared_ptr<tcp_socket<CustomData>> make_tcp_socket(boost::asio::io_context & context)
 {
 	return std::make_shared<tcp_socket<CustomData>>(context);
 }

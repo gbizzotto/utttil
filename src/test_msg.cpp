@@ -1,46 +1,79 @@
 
 #include "headers.hpp"
 
+#include <iostream>
 #include <memory>
 #include <string>
-#include "utttil/msg_server.hpp"
-#include "utttil/msg_client.hpp"
+#include <atomic>
+
+#include "utttil/io.hpp"
+
+struct MyData
+{
+	int value;
+	std::string str;
+
+	template<typename Serializer>
+	void serialize(Serializer && s) const
+	{
+		s << value
+		  << str
+		  ;
+	}
+	template<typename Deserializer>
+	void deserialize(Deserializer && s)
+	{
+		s >> value
+		  >> str
+		  ;
+	}
+};
+inline bool operator==(const MyData & left, const MyData & right)
+{
+	return left.value == right.value
+		&& left.str   == right.str
+		;
+}
+inline std::ostream & operator<<(std::ostream & out, const MyData & d)
+{
+	return out << d.value << ", " << d.str;
+}
+
 
 bool test(std::string url)
 {
-	std::string sent_by_client = "lkjlkjlkj32lkj42l3kj4l2k3j";
-	std::string sent_by_server = "fdsa32431241234124";
-	std::string recv_by_client;
-	std::string recv_by_server;
+	MyData sent_by_client = {1234, "lkjlkjlkj32lkj42l3kj4l2k3j"};
+	MyData sent_by_server = {9876, "fdsa32431241234124"};
+	MyData recv_by_client;
+	MyData recv_by_server;
+
+	std::atomic_bool done = false;
+
+	utttil::io::context ctx;
+	ctx.async_run();
 
 	// server
-	auto server_sptr = utttil::make_msg_server<std::string,std::string>(url);
-	server_sptr->on_message = [&](auto conn_sptr, std::unique_ptr<std::string> msg)
+	auto srv_on_message = [&](auto conn_sptr, std::unique_ptr<MyData> msg)
 		{
-			std::cout << "on message server" << *msg << std::endl;
 			recv_by_server = *msg;
 			conn_sptr->async_send(sent_by_server);
 		};
-	server_sptr->async_run();
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	auto server_sptr = ctx.bind_srlz<MyData,MyData>(url, nullptr, srv_on_message);
 
 	// client
-	auto client_sptr = utttil::make_msg_client<std::string,std::string>(url);
-	client_sptr->on_message = [&](auto, std::unique_ptr<std::string> msg)
+	auto cli_on_connect = [&](auto conn_sptr)
 		{
-			std::cout << "on message client " << *msg << std::endl;
-			recv_by_client = *msg;
+			conn_sptr->async_send(sent_by_client);
 		};
-	client_sptr->async_run();
-	client_sptr->async_send(sent_by_client);
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	auto cli_on_message = [&](auto conn_sptr, std::unique_ptr<MyData> msg)
+		{
+			recv_by_client = *msg;
+			done = true;
+		};
+	auto client_sptr = ctx.connect_srlz<MyData,MyData>(url, cli_on_connect, cli_on_message);
 
-	// shutdown
-	client_sptr->close();
-	server_sptr->close();
-
-	server_sptr->join();
-	client_sptr->join();
+	while( ! done)
+	{}
 
 	// check
 	return recv_by_server == sent_by_client
@@ -49,7 +82,8 @@ bool test(std::string url)
 
 int main()
 {
-	bool success = test("ws://127.0.0.1:1234/")
+	bool success = true
+		&& test("ws://127.0.0.1:1234/")
 		&& test("tcp://127.0.0.1:1234/")
 		;
 

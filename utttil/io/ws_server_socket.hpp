@@ -16,7 +16,7 @@ struct ws_server_socket : ws_socket<CustomData>
 {
 	using ConnectionData = CustomData;
 
-	ws_server_socket(std::shared_ptr<boost::asio::io_context> io_context = nullptr)
+	ws_server_socket(boost::asio::io_context & io_context)
 		: ws_socket<CustomData>(io_context)
 	{}
 	void init()
@@ -32,7 +32,7 @@ struct ws_server_socket : ws_socket<CustomData>
 					{
 						res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " ttt");
 					}));
-this_sptr->async_accept();
+				this_sptr->async_accept();
 			});
 	}
 

@@ -27,16 +27,17 @@ struct tcp_server : interface<CustomData>
 
 	tcp::acceptor acceptor;
 
-	tcp_server(int port, std::shared_ptr<boost::asio::io_context> context = nullptr)
+	tcp_server(boost::asio::io_context & context, int port)
 		: interface<CustomData>(context)
-		, acceptor(*this->io_context, tcp::endpoint(tcp::v4(), port))
-	{}
-	virtual bool is_null_io() const override { return false; }
+		, acceptor(context, tcp::endpoint(tcp::v4(), port))
+	{
+		this->async_accept();
+	}
 	
 	virtual void close() override
 	{
-		if (acceptor.is_open())
-			acceptor.close();
+		boost::system::error_code ec;
+		acceptor.close(ec);
 	}
 
 	void async_accept()
@@ -58,9 +59,9 @@ struct tcp_server : interface<CustomData>
 };
 
 template<typename CustomData=int>
-std::shared_ptr<tcp_server<CustomData>> make_tcp_server(int port, std::shared_ptr<boost::asio::io_context> context = nullptr)
+std::shared_ptr<tcp_server<CustomData>> make_tcp_server(boost::asio::io_context & context, int port)
 {
-	return std::make_shared<tcp_server<CustomData>>(port, context);
+	return std::make_shared<tcp_server<CustomData>>(context, port);
 }
 
 }} // namespace

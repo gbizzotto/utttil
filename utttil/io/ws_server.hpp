@@ -1,5 +1,8 @@
 
-#include "ws_server_socket.hpp"
+#pragma once
+
+#include "utttil/io/ws_server_socket.hpp"
+#include "utttil/io/interface.hpp"
 
 namespace utttil {
 namespace io {
@@ -13,24 +16,24 @@ struct ws_server : interface<CustomData>
 
 	tcp::acceptor acceptor;
 
-	ws_server(int port, std::shared_ptr<boost::asio::io_context> context = nullptr)
+	ws_server(boost::asio::io_context & context, int port)
 		: interface<CustomData>(context)
-		, acceptor(*this->io_context, tcp::endpoint(tcp::v4(), port))
+		, acceptor(context, tcp::endpoint(tcp::v4(), port))
 	{
 		acceptor.set_option(boost::asio::socket_base::reuse_address(true));
 	}
-	virtual bool is_null_io() const override { return false; }
 	
 	virtual void close() override
 	{
-		if (acceptor.is_open())
-			acceptor.close();
+		boost::beast::error_code ec;
+		this->acceptor.close(ec);
+		this->on_close(this->shared_from_this());
 	}
 	
 	void listen()
 	{
-		acceptor.listen(boost::asio::socket_base::max_listen_connections);
-		async_accept();
+		this->acceptor.listen(boost::asio::socket_base::max_listen_connections);
+		this->async_accept();
 	}
 
 	void async_accept()
@@ -52,9 +55,9 @@ struct ws_server : interface<CustomData>
 };
 
 template<typename CustomData=int>
-std::shared_ptr<ws_server<CustomData>> make_ws_server(int port, std::shared_ptr<boost::asio::io_context> context = nullptr)
+std::shared_ptr<ws_server<CustomData>> make_ws_server(boost::asio::io_context & context, int port)
 {
-	return std::make_shared<ws_server<CustomData>>(port, context);
+	return std::make_shared<ws_server<CustomData>>(context, port);
 }
 
 }} // namespace
