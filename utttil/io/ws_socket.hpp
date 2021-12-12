@@ -25,6 +25,7 @@ struct async_write_callback_ws_t
 	{
 		if (error)
 		{
+			std::cout << "ws write error: " << error.message() << std::endl;
 			if (error != boost::beast::websocket::error::closed)
 				t->close();
 			else
@@ -71,7 +72,7 @@ struct ws_socket : interface<CustomData>
 		auto endpoints = resolver.resolve(host, port, ec);
 
 		if(ec) {
-			//std::cout << "client couldnt resolve" << std::endl;
+			std::cout << "ws_socket open() resolver.resolve() error: " << ec.message() << std::endl;
 			return false;
 		}
 
@@ -82,7 +83,7 @@ struct ws_socket : interface<CustomData>
 		boost::beast::get_lowest_layer(this->stream).connect(endpoints, ec);
 
 		if(ec) {
-			//std::cout << "client couldnt connect" << std::endl;
+			std::cout << "ws_socket open() beast connect() error: " << ec.message() << std::endl;
 			return false;
 		}
 
@@ -109,7 +110,7 @@ struct ws_socket : interface<CustomData>
 		boost::beast::websocket::response_type res;
 		this->stream.handshake(res, host_, target_, ec);
 		if(ec) {
-			//std::cout << "client couldnt handshake because " << ec.message() << std::endl;
+			std::cout << "ws_socket open() stream.handshake() error: " << ec.message() << std::endl;
 			return false;
 		}
 
@@ -217,10 +218,12 @@ struct ws_socket : interface<CustomData>
 		}
 		if (error)
 		{
-			if (error != boost::beast::websocket::error::closed)
+			std::cout << "ws_socket.handle_read() error: " << error.value() << ", " << error.message() << std::endl;
+			if (error != boost::beast::websocket::error::closed) {
 				close();
-			else
+			} else {
 				this->on_close(std::static_pointer_cast<ws_socket>(this->shared_from_this()));
+			}
 			return;
 		}
 		async_read();
@@ -237,8 +240,8 @@ struct ws_socket : interface<CustomData>
 			hex_data.push_back((c&0xF) + 0b01000000);
 		}
 		auto this_sptr = std::static_pointer_cast<ws_socket>(this->shared_from_this());
-		async_write_callback_ws_t callback(std::move(hex_data), this_sptr);
-		stream.async_write(boost::asio::buffer(callback.data.data(), callback.data.size()), callback);
+		auto callback = std::make_shared<async_write_callback_ws_t<decltype(this_sptr)>>(std::move(hex_data), this_sptr);
+		stream.async_write(boost::asio::buffer(callback->data.data(), callback->data.size()), [callback](const boost::system::error_code & error, size_t bytes_transferred){callback->operator()(error, bytes_transferred);});
 	}
 
 };

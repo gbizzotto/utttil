@@ -41,8 +41,10 @@ struct ws_server : interface<CustomData>
 		auto new_connection_sptr = std::make_shared<Connection>(this->io_context);
 		acceptor.async_accept(new_connection_sptr->get_tcp_socket(), [new_connection_sptr,this](const boost::system::error_code & error)
 			{
-				if (error)
+				if (error) {
+					std::cout << "ws_server.async_accept error: " << error.message() << std::endl;
 					return;
+				}
 
 				new_connection_sptr->on_connect = this->on_connect;
 				new_connection_sptr->on_close   = this->on_close  ;

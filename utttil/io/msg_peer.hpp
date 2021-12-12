@@ -21,7 +21,7 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 	using CallbackOnClose   = std::function<void(ThisSPTR)>;
 	using CallbackOnMessage = std::function<void(ThisSPTR, std::unique_ptr<InMsg>)>;
 
-	std::shared_ptr<utttil::io::interface<CustomData>> interface;
+	std::shared_ptr<utttil::io::interface<CustomData>> interface_;
 	utttil::synchronized<std::deque<std::pair<ThisSPTR,std::unique_ptr<InMsg>>>> inbox;
 	
 	CallbackOnConnect on_connect = [](ThisSPTR){};
@@ -38,16 +38,18 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 	void close()
 	{
 		go_on = false;
-		interface->close();
+		interface_->close();
 	}
+
+	CustomData & connection_data() { return interface_->connection_data; }
 
 	void decode_recvd()
 	{
-		auto & data = interface->recv_buffer;
+		auto & data = interface_->recv_buffer;
 		if (data.size() < 2)
 			return;
 		size_t size = *data.begin() * 256 + *std::next(data.begin());
-		if (data.size() != size+2)
+		if (data.size() < size+2)
 			return;
 
 		auto unpacker = utttil::srlz::from_binary(utttil::srlz::device::iterator_reader(std::next(data.begin(),2), data.end()));
@@ -55,16 +57,15 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 		try {
 			unpacker >> *resp;
 		} catch (utttil::srlz::device::stream_end_exception & e) {
+			std::cout << "stream end exception" << std::endl;
 			return;
 		} catch (std::overflow_error & e) {
+			std::cout << "overflow_error" << std::endl;
 			close();
 			return;
 		}
+		data.erase(data.begin(), std::next(data.begin(), size+2));
 		auto this_sptr = this->shared_from_this();
-		//if (on_message)
-		//	std::cout << "on message()" << std::endl;
-		//else
-		//	std::cout << "inboks" << std::endl;
 		if (on_message)
 			on_message(this_sptr, std::move(resp));
 		else
@@ -78,13 +79,13 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 	{
 		auto inbox_proxy = inbox.wait_for_notification([this](auto & inbox){ return go_on == false || inbox.size()!=0; });
 		if ( ! go_on)
-			return {nullptr};
+			return {nullptr,nullptr};
 		auto p = std::move(inbox_proxy->front());
 		inbox_proxy->pop_front();
 		return p;
 	}
 
-	void async_send(OutMsg & req)
+	void async_send(const OutMsg & req)
 	{
 		std::vector<char> msg;
 		msg.reserve(64);
@@ -101,7 +102,7 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 		msg.front() = (size/256) & 0xFF;
 		*std::next(msg.begin()) = size & 0xFF;
 
-		interface->async_write(std::move(msg));
+		interface_->async_write(std::move(msg));
 	}
 };
 

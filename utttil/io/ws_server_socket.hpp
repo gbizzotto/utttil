@@ -41,7 +41,9 @@ struct ws_server_socket : ws_socket<CustomData>
 		auto this_sptr = std::static_pointer_cast<ws_server_socket>(this->shared_from_this());
 		this->stream.async_accept([this_sptr](boost::beast::error_code const & ec)
 			{
-				if (ec != boost::beast::websocket::error::closed)
+				if (ec)
+					std::cout << "async_accept error: " << ec.message() << std::endl;
+				else
 					this_sptr->async_read();
 			});
 	}

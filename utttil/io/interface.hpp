@@ -15,12 +15,13 @@
 namespace utttil {
 namespace io {
 
+// parent interface for all low-level (non-structure-msg) io schemes (tcp,udp,file...)
 template<typename CustomData=int>
 struct interface : public std::enable_shared_from_this<interface<CustomData>>
 {
 	using ConnectionData = CustomData;
-	using Connection = interface;
-	using ConnectionSPTR = std::shared_ptr<interface>;
+	using Connection = interface<CustomData>;
+	using ConnectionSPTR = std::shared_ptr<interface<CustomData>>;
 	using CallbackOnConnect = std::function<void(ConnectionSPTR)>;
 	using CallbackOnClose   = std::function<void(ConnectionSPTR)>;
 	using CallbackOnMessage = std::function<void(ConnectionSPTR)>;
