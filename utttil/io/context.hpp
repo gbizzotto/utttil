@@ -94,6 +94,11 @@ struct context
 		}
 		else if (url.protocol == "ws")
 		{
+			if (url.location.empty())
+			{
+				std::cout << "can't connect to websocket with empty location. Add a / to the url." << std::endl;
+				return nullptr;
+			}
 			auto socket = make_ws_socket<CustomData>(io_context);
 			if ( ! socket)
 				return nullptr;
