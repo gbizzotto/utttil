@@ -5,6 +5,7 @@
 #include <sstream>
 #include <map>
 #include <algorithm>
+#include <numeric>
 
 namespace utttil {
 
@@ -83,6 +84,28 @@ struct url_
 			}
 		}
 	}
+
+	url_ & operator=(const char * str)
+	{
+		return *this = url_(STR(str));
+	}
+
+	STR to_string() const
+	{
+		return protocol + "://"
+			+ (login.empty() ? "" : login)
+			+ (login.empty() || password.empty() ? "" : (":" + password))
+			+ (login.empty() ? "" : "@")
+			+ (host.empty() ? "" : host)
+			+ (host.empty() || port.empty() ? "" : (":" + port))
+			+ ((protocol!="file" && !location.empty() && location[0]!='/') ? "/" : "") + location
+			+ (args.empty() ? "" : std::accumulate(args.begin(), args.end(), std::string("?"),
+				[](std::string & so_far, auto arg_pair)
+				{
+					if(so_far.size() > 1) so_far.append("&"); so_far.append(arg_pair.first).append("=").append(arg_pair.second); return so_far;
+				}))
+			;
+	}
 };
 
 using url = url_<std::string>;
@@ -93,7 +116,7 @@ std::ostream & operator<<(std::ostream & out, const url_<STR> & u)
 	out << "protocol = " << u.protocol << std::endl
 	    << "host     = " << u.host     << std::endl
 	    << "port     = " << u.port     << std::endl
-	    << "location = " << u.location << std::endl
+	    << "location = " << u.location
 	    ;
 	for (const auto & p : u.args)
 		out << p.first << " = " << p.second;

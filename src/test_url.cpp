@@ -43,6 +43,7 @@ bool test_protocol()
 		{
 			utttil::url url(u);
 			ASSERT_MSG_ACT(url.protocol, ==, "tcp", u, return false); 
+			ASSERT_ACT(url.to_string(), ==, u, return false);
 		}
 	}
 	return true;
@@ -64,6 +65,7 @@ bool test_login()
 		{
 			utttil::url url(u);
 			ASSERT_MSG_ACT(url.login, ==, "user", u, return false); 
+			ASSERT_ACT(url.to_string(), ==, u, return false);
 		}
 	}
 	{
