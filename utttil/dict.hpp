@@ -35,6 +35,7 @@ struct DequeDict : public std::deque<V>
 {
 	using SelfType = DequeDict;
 	using Super = std::deque<V>;
+	using value_type = V;
 
 	V & get(const K & k)
 	{
