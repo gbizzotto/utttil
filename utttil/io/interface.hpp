@@ -42,6 +42,7 @@ struct interface : public std::enable_shared_from_this<interface<CustomData>>
 		close();
 	}
 
+	virtual void       write(std::vector<char> && data) {}
 	virtual void async_write(std::vector<char> && data) {}
 	virtual void close() {}
 };

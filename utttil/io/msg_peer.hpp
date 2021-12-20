@@ -85,6 +85,36 @@ struct msg_peer : std::enable_shared_from_this<msg_peer<InMsg,OutMsg,CustomData>
 		return p;
 	}
 
+	size_t clear_inbox()
+	{
+		auto inbox_proxy = inbox.lock();
+		if ( ! go_on)
+			return 0;
+		size_t size = inbox_proxy->size();
+		inbox_proxy->clear();
+		return size;
+	}
+
+	void send(const OutMsg & req)
+	{
+		std::vector<char> msg;
+		msg.reserve(64);
+		auto packer = utttil::srlz::to_binary(utttil::srlz::device::back_pusher(msg));
+
+		// size placeholder
+		msg.push_back(0);
+		msg.push_back(0);
+
+		packer << req;
+
+		//size
+		size_t size = msg.size() - 2;
+		msg.front() = (size/256) & 0xFF;
+		*std::next(msg.begin()) = size & 0xFF;
+
+		interface_->write(std::move(msg));
+	}
+
 	void async_send(const OutMsg & req)
 	{
 		std::vector<char> msg;

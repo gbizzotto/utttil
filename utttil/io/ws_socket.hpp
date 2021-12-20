@@ -229,6 +229,19 @@ struct ws_socket : interface<CustomData>
 		async_read();
 	}
 
+	void write(std::vector<char> && data)
+	{
+		// transform 8-bits-per-byte data into 4-bits-per-byte data
+		std::vector<char> hex_data;
+		hex_data.reserve(data.size()*2);
+		for(char c : data)
+		{
+			hex_data.push_back((c>>4) + 0b01000000);
+			hex_data.push_back((c&0xF) + 0b01000000);
+		}
+		stream.write(boost::asio::buffer(data.data(), data.size()));
+	}
+
 	void async_write(std::vector<char> && data)
 	{
 		// transform 8-bits-per-byte data into 4-bits-per-byte data

@@ -105,6 +105,11 @@ struct tcp_socket : interface<CustomData>
 		async_read();
 	}
 
+	void write(std::vector<char> && data)
+	{
+		boost::asio::write(socket, boost::asio::buffer(data.data(), data.size()));
+	}
+
 	void async_write(std::vector<char> && data)
 	{
 		auto this_sptr = std::static_pointer_cast<tcp_socket>(this->shared_from_this());
