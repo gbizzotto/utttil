@@ -45,7 +45,7 @@ struct peer
 	inline static socklen_t client_addr_len = sizeof(accepted->client_addr);
 
 	std::function<void (peer * p)> on_accept;
-	std::function<void (peer * p)> on_message;
+	std::function<void (peer * p)> on_data;
 	std::function<void (peer * p)> on_close;
 
 	void close()
@@ -225,8 +225,8 @@ struct context
 	            	p->post_accept();
 	            	if (p->on_accept)
 	            		p->on_accept(new_p);
-	            	if (p->on_message)
-	            		new_p->on_message = p->on_message;
+	            	if (p->on_data)
+	            		new_p->on_data = p->on_data;
 	            	if (p->on_close)
 	            		new_p->on_close = p->on_close;
 	                new_p->post_read();
@@ -239,18 +239,20 @@ struct context
 		            		p->on_close(p);
 		            	break;
 	            	}
-	            	if (cqe->res == p->inbox.back().size()) // buffer full
+	            	std::cout << "read " << cqe->res << std::endl;
+	            	if (cqe->res == p->inbox.back().size() && p->size_to_read < 1024*1024) // buffer full
 	            		p->size_to_read *= 2;
-	            	else if (cqe->res < p->inbox.back().size() / 2) // buffer mostly empty
+	            	else if (cqe->res < p->inbox.back().size() / 2 && p->size_to_read > 16) // buffer mostly empty
 	            	{
 	            		p->size_to_read /= 2;
 	                	p->inbox.back().resize(cqe->res);
 	                }
 	                p->post_read();
-	                if (p->on_message)
-	                	p->on_message(p);
+	                if (p->on_data)
+	                	p->on_data(p);
 	                break;
 	            case Action::Write:
+	            	std::cout << "written " << cqe->res << std::endl;
 	            	p->outbox.pop_front();
 	            	break;
 	            default:

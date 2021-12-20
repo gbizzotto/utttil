@@ -33,7 +33,6 @@ int main()
 
     std::string rcvd_by_srv;
     std::string rcvd_by_cli_welcome;
-    std::string rcvd_by_cli_copy;
 
     // server
 
@@ -50,14 +49,11 @@ int main()
 		{
 			p->post_write(vec_from_str(sent_by_srv));
 		};
-	srv->on_message = [&](utttil::iou::peer * p)
+	srv->on_data = [&](utttil::iou::peer * p)
 		{
-			rcvd_by_srv = str_from_vec(p->inbox.front());
+			rcvd_by_srv += str_from_vec(p->inbox.front());
 
-			for (auto c : p->inbox.front())
-				std::cout << c;
-			std::cout << std::endl;
-			p->post_write(std::move(p->inbox.front()));
+			std::cout << "srv " << p->inbox.front().size() << " " << str_from_vec(p->inbox.front()) << std::endl;
 			p->inbox.pop_front();
 		};
 	srv->on_close = [](utttil::iou::peer * p)
@@ -77,16 +73,11 @@ int main()
 		return -1;
 	}
 
-	cli->on_message = [&](utttil::iou::peer * p)
+	cli->on_data = [&](utttil::iou::peer * p)
 		{
-			if (rcvd_by_cli_welcome.empty())
-				rcvd_by_cli_welcome = str_from_vec(p->inbox.front());
-			else
-				rcvd_by_cli_copy = str_from_vec(p->inbox.front());
+			rcvd_by_cli_welcome += str_from_vec(p->inbox.front());
 
-			for (auto c : p->inbox.front())
-				std::cout << c;
-			std::cout << std::endl;
+			std::cout << "cli " << p->inbox.front().size() << " " << str_from_vec(p->inbox.front()) << std::endl;
 			p->inbox.pop_front();
 		};
 	cli->on_close = [](utttil::iou::peer * p)
@@ -97,11 +88,15 @@ int main()
 	cli->post_write(vec_from_str(sent_by_cli));
 	
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-	return true
+	std::cout << "rcvd_by_srv: "         << rcvd_by_srv         << "->" << (rcvd_by_srv        ==sent_by_cli) << std::endl;
+	std::cout << "rcvd_by_cli_welcome: " << rcvd_by_cli_welcome << "->" << (rcvd_by_cli_welcome==sent_by_srv) << std::endl;
+
+	bool success = true
 		&& rcvd_by_srv         == sent_by_cli
 		&& rcvd_by_cli_welcome == sent_by_srv
-		&& rcvd_by_cli_copy    == sent_by_cli
 		;
+
+	return success ? 0 : 1;
 }
