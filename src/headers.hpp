@@ -4,6 +4,10 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
 
 #include <iomanip>
 #include <ctime>
@@ -23,6 +27,9 @@
 #include <map>
 #include <vector>
 #include <deque>
+#include <cstring>
+#include <optional>
+#include <atomic>
 
 #include <boost/program_options.hpp>
 #include <boost/circular_buffer.hpp>
