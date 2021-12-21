@@ -2,13 +2,6 @@
 #include <signal.h>
 #include "utttil/iou.hpp"
 
-std::atomic_bool go_on = true;
-
-void sigint_handler(int signo)
-{
-	go_on = false;
-}
-
 std::vector<char> vec_from_str(std::string s)
 {
 	std::vector<char> v;
@@ -24,10 +17,8 @@ std::string str_from_vec(std::vector<char> & v)
 	return s;
 }
 
-int main()
+bool test_data()
 {
-    signal(SIGINT, sigint_handler);
-
     const std::string sent_by_cli = "You keep using that word. I don't think it means what you think it means.";
     const std::string sent_by_srv = "My name is Inigo Montoya. You killed my father. Prepare to die.";
 
@@ -98,5 +89,13 @@ int main()
 		&& rcvd_by_cli_welcome == sent_by_srv
 		;
 
+	return success;
+}
+
+int main()
+{
+	bool success = true
+		&& test_data()
+		;
 	return success ? 0 : 1;
 }

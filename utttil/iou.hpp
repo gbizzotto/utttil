@@ -18,6 +18,8 @@
 
 #include <liburing.h>
 
+#include <utttil/ring_buffer.hpp>
+
 namespace utttil {
 namespace iou {
 
@@ -35,8 +37,8 @@ struct peer
 	int file = 0;
     sockaddr_in client_addr;
 
-	std::deque<std::vector<char>> inbox;
-	std::deque<std::vector<char>> outbox;
+	utttil::ring_buffer<std::vector<char>>  inbox = utttil::ring_buffer<std::vector<char>>(16384);
+	utttil::ring_buffer<std::vector<char>> outbox = utttil::ring_buffer<std::vector<char>>(16384);
     iovec read_iov[1];
     iovec write_iov[1];
     size_t size_to_read = 16;
@@ -102,7 +104,7 @@ struct context
 	    //params.flags |= IORING_SETUP_SQPOLL;
 	    params.sq_thread_idle = 2000;
 
-	    int queue_depth = 256;
+	    int queue_depth = 16384;
 	    io_uring_queue_init_params(queue_depth, &ring, &params);
 	}
 	~context()
