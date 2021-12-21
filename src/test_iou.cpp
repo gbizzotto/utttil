@@ -22,6 +22,8 @@ bool test_data()
     const std::string sent_by_cli = "You keep using that word. I don't think it means what you think it means.";
     const std::string sent_by_srv = "My name is Inigo Montoya. You killed my father. Prepare to die.";
 
+    utttil::url url("tcp://localhost:8000");
+
     std::string rcvd_by_srv;
     std::string rcvd_by_cli_welcome;
 
@@ -29,7 +31,7 @@ bool test_data()
 
 	utttil::iou::context srv_ctx;
 	srv_ctx.run();
-	auto srv = srv_ctx.bind(8000);
+	auto srv = srv_ctx.bind(url);
 	if ( ! srv)
 	{
 		std::cerr << "Bind failed" << std::endl;
@@ -57,7 +59,7 @@ bool test_data()
 
 	utttil::iou::context cli_ctx;
 	cli_ctx.run();
-	auto cli = cli_ctx.connect("127.0.0.1", 8000);
+	auto cli = cli_ctx.connect(url);
 	if ( ! cli)
 	{
 		std::cerr << "Connect failed" << std::endl;
@@ -129,11 +131,13 @@ bool test_messages()
     message rcvd_by_srv;
     message rcvd_by_cli_welcome;
 
+    utttil::url url("tcp://localhost:8000");
+
     // server
 
 	utttil::iou::context srv_ctx;
 	srv_ctx.run();
-	auto srv = srv_ctx.bind_srlz<message,message>(8000);
+	auto srv = srv_ctx.bind_srlz<message,message>(url);
 	if ( ! srv)
 	{
 		std::cerr << "Bind failed" << std::endl;
@@ -162,7 +166,7 @@ bool test_messages()
 
 	utttil::iou::context cli_ctx;
 	cli_ctx.run();
-	auto cli = cli_ctx.connect_srlz<message,message>("127.0.0.1", 8000);
+	auto cli = cli_ctx.connect_srlz<message,message>(url);
 	if ( ! cli)
 	{
 		std::cerr << "Connect failed" << std::endl;

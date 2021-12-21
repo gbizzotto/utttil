@@ -18,6 +18,7 @@
 
 #include <liburing.h>
 
+#include <utttil/url.hpp>
 #include <utttil/ring_buffer.hpp>
 #include <utttil/srlz.hpp>
 
@@ -211,7 +212,7 @@ struct context
 	    return sock;
 	}
 
-	int client_socket(const char * addr, int port)
+	int client_socket(const std::string & addr, int port)
 	{
 		int sock = this->socket();
 		if (sock == -1) {
@@ -222,7 +223,7 @@ struct context
 	    ::memset(&srv_addr, 0, sizeof(srv_addr));
 	    srv_addr.sin_family = AF_INET;
 	    srv_addr.sin_port = ::htons(port);
-	    srv_addr.sin_addr.s_addr = ::inet_addr(addr);
+	    srv_addr.sin_addr.s_addr = ::inet_addr(addr.c_str());
 	    if (::connect(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
 	        std::cerr << "connect() " << strerror(errno) << std::endl;;
 	        return -1;
@@ -230,9 +231,12 @@ struct context
 	    return sock;
 	}
 
-	std::unique_ptr<peer> bind(int port)
+	std::unique_ptr<peer> bind(utttil::url url)
 	{
-		int sock = this->server_socket(port);
+		if (url.protocol != "tcp")
+			return {};
+		
+		int sock = this->server_socket(std::stoull(url.port));
 		if (sock == -1)
 			return {};
 
@@ -241,9 +245,12 @@ struct context
 	    return peer_sptr;
 	}
 
-	std::unique_ptr<peer> connect(const char * addr, int port)
+	std::unique_ptr<peer> connect(const utttil::url url)
 	{
-		int sock = this->client_socket(addr, port);
+		if (url.protocol != "tcp")
+			return {};
+
+		int sock = this->client_socket(url.host, std::stoull(url.port));
 		if (sock == -1) {
 			return {};
 		}
@@ -254,9 +261,12 @@ struct context
 	}
 
 	template<typename InMsg, typename OutMsg>
-	std::unique_ptr<peer_srlz<InMsg,OutMsg>> bind_srlz(int port)
+	std::unique_ptr<peer_srlz<InMsg,OutMsg>> bind_srlz(const utttil::url url)
 	{
-		int sock = this->server_socket(port);
+		if (url.protocol != "tcp")
+			return {};
+
+		int sock = this->server_socket(std::stoull(url.port));
 		if (sock == -1)
 			return {};
 
@@ -267,9 +277,12 @@ struct context
 	}
 
 	template<typename InMsg, typename OutMsg>
-	std::unique_ptr<peer_srlz<InMsg,OutMsg>> connect_srlz(const char * addr, int port)
+	std::unique_ptr<peer_srlz<InMsg,OutMsg>> connect_srlz(const utttil::url url)
 	{
-		int sock = this->client_socket(addr, port);
+		if (url.protocol != "tcp")
+			return {};
+
+		int sock = this->client_socket(url.host, std::stoull(url.port));
 		if (sock == -1) {
 			return {};
 		}
