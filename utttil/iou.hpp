@@ -104,14 +104,14 @@ struct peer
 };
 
 template<typename InMsg, typename OutMsg>
-struct peer_srlz : peer
+struct msg_peer : peer
 {
 	utttil::ring_buffer<std::unique_ptr< InMsg>>  inbox_msg = utttil::ring_buffer<std::unique_ptr< InMsg>>(1024);
 	utttil::ring_buffer<std::unique_ptr<OutMsg>> outbox_msg = utttil::ring_buffer<std::unique_ptr<OutMsg>>(1024);
 
-	std::function<void (peer_srlz * p)> on_message;
+	std::function<void (msg_peer * p)> on_message;
 
-	peer_srlz(io_uring & ring_, int file_)
+	msg_peer(io_uring & ring_, int file_)
 		: peer(ring_, file_)
 	{}
 
@@ -261,7 +261,7 @@ struct context
 	}
 
 	template<typename InMsg, typename OutMsg>
-	std::unique_ptr<peer_srlz<InMsg,OutMsg>> bind_srlz(const utttil::url url)
+	std::unique_ptr<msg_peer<InMsg,OutMsg>> bind_srlz(const utttil::url url)
 	{
 		if (url.protocol != "tcp")
 			return {};
@@ -270,14 +270,14 @@ struct context
 		if (sock == -1)
 			return {};
 
-	    std::unique_ptr<peer_srlz<InMsg,OutMsg>> peer_sptr(new peer_srlz<InMsg,OutMsg>{ring, sock});
-	    //peer_sptr->on_data = [](peer * p){ ((peer_srlz<InMsg,OutMsg>*)p)->unpack(); };
+	    std::unique_ptr<msg_peer<InMsg,OutMsg>> peer_sptr(new msg_peer<InMsg,OutMsg>{ring, sock});
+	    //peer_sptr->on_data = [](peer * p){ ((msg_peer<InMsg,OutMsg>*)p)->unpack(); };
 	    peer_sptr->post_accept();
 	    return peer_sptr;
 	}
 
 	template<typename InMsg, typename OutMsg>
-	std::unique_ptr<peer_srlz<InMsg,OutMsg>> connect_srlz(const utttil::url url)
+	std::unique_ptr<msg_peer<InMsg,OutMsg>> connect_srlz(const utttil::url url)
 	{
 		if (url.protocol != "tcp")
 			return {};
@@ -287,8 +287,8 @@ struct context
 			return {};
 		}
 
-	    std::unique_ptr<peer_srlz<InMsg,OutMsg>> peer_sptr(new peer_srlz<InMsg,OutMsg>{ring, sock});
-	    //peer_sptr->on_data = [](peer * p){ ((peer_srlz<InMsg,OutMsg>*)p)->unpack(); };
+	    std::unique_ptr<msg_peer<InMsg,OutMsg>> peer_sptr(new msg_peer<InMsg,OutMsg>{ring, sock});
+	    //peer_sptr->on_data = [](peer * p){ ((msg_peer<InMsg,OutMsg>*)p)->unpack(); };
 	    peer_sptr->post_read();
 	    return peer_sptr;
 	}

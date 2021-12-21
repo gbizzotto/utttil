@@ -146,10 +146,10 @@ bool test_messages()
 
 	srv->on_accept = [&](utttil::iou::peer * p)
 		{
-			utttil::iou::peer_srlz<message,message> * p2 = (utttil::iou::peer_srlz<message,message> *)p;
+			utttil::iou::msg_peer<message,message> * p2 = (utttil::iou::msg_peer<message,message> *)p;
 			p2->post_send(std::make_unique<message>(sent_by_srv));
 		};
-	srv->on_message = [&](utttil::iou::peer_srlz<message,message> * p)
+	srv->on_message = [&](utttil::iou::msg_peer<message,message> * p)
 		{
 			rcvd_by_srv = *p->inbox_msg.front();
 
@@ -173,7 +173,7 @@ bool test_messages()
 		return -1;
 	}
 
-	cli->on_message = [&](utttil::iou::peer_srlz<message,message> * p)
+	cli->on_message = [&](utttil::iou::msg_peer<message,message> * p)
 		{
 			rcvd_by_cli_welcome = *p->inbox_msg.front();
 
