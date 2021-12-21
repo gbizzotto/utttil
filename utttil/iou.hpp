@@ -22,6 +22,7 @@
 #include <utttil/url.hpp>
 #include <utttil/ring_buffer.hpp>
 #include <utttil/srlz.hpp>
+#include <utttil/no_init.hpp>
 
 namespace utttil {
 namespace iou {
@@ -41,12 +42,12 @@ struct peer
 	int file = 0;
     sockaddr_in client_addr;
 
-	utttil::ring_buffer<std::vector<char>>  inbox = utttil::ring_buffer<std::vector<char>>(1024);
-	utttil::ring_buffer<std::vector<char>> outbox = utttil::ring_buffer<std::vector<char>>(1024);
+	utttil::ring_buffer<std::vector<no_init<char>>>  inbox = utttil::ring_buffer<std::vector<no_init<char>>>(1024);
+	utttil::ring_buffer<std::vector<        char >> outbox = utttil::ring_buffer<std::vector<        char >>(1024);
     iovec read_iov[1];
     iovec write_iov[1];
     size_t size_to_read = 16;
-    std::vector<char> recv_buffer;
+    std::vector<no_init<char>> recv_buffer;
 
 	peer * accepted = nullptr;
 	inline static socklen_t client_addr_len = sizeof(accepted->client_addr);
@@ -150,7 +151,7 @@ struct inbox_reader
 {
 	peer & p;
 	decltype(p.inbox)::iterator it_inbox;
-	std::vector<char>::iterator it_vec;
+	std::vector<no_init<char>>::iterator it_vec;
 	inbox_reader(peer & p_)
 		: p(p_)
 		, it_inbox(p.inbox.begin())

@@ -9,7 +9,7 @@ std::vector<char> vec_from_str(std::string s)
 		v.push_back(a);
 	return v;
 }
-std::string str_from_vec(std::vector<char> & v)
+std::string str_from_vec(std::vector<utttil::no_init<char>> & v)
 {
 	std::string s;
 	for(const char a : v)
