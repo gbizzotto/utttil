@@ -8,17 +8,18 @@
 
 #include <chrono>
 #include <iostream>
-#include <deque>
 #include <vector>
 #include <cstring>
 #include <optional>
 #include <thread>
 #include <atomic>
 #include <functional>
+#include <memory>
 
 #include <liburing.h>
 
 #include <utttil/ring_buffer.hpp>
+#include <utttil/srlz.hpp>
 
 namespace utttil {
 namespace iou {
@@ -29,6 +30,7 @@ enum Action
 	Accept = 1,
 	Read   = 2,
 	Write  = 3,
+	Pack   = 4,
 };
 
 struct peer
@@ -37,8 +39,8 @@ struct peer
 	int file = 0;
     sockaddr_in client_addr;
 
-	utttil::ring_buffer<std::vector<char>>  inbox = utttil::ring_buffer<std::vector<char>>(16384);
-	utttil::ring_buffer<std::vector<char>> outbox = utttil::ring_buffer<std::vector<char>>(16384);
+	utttil::ring_buffer<std::vector<char>>  inbox = utttil::ring_buffer<std::vector<char>>(1024);
+	utttil::ring_buffer<std::vector<char>> outbox = utttil::ring_buffer<std::vector<char>>(1024);
     iovec read_iov[1];
     iovec write_iov[1];
     size_t size_to_read = 16;
@@ -50,8 +52,14 @@ struct peer
 	std::function<void (peer * p)> on_data;
 	std::function<void (peer * p)> on_close;
 
+	peer(io_uring & ring_, int file_)
+		: ring(ring_)
+		, file(file_)
+	{}
+
 	void close()
 	{
+		// TODO use io_uring_prep_close ?
 		::close(file);
 	}
 
@@ -88,6 +96,46 @@ struct peer
 	    io_uring_prep_accept(sqe, file, (struct sockaddr*) &accepted->client_addr, &client_addr_len, 0);
 	    io_uring_sqe_set_data(sqe, (void*)((ptrdiff_t)this | Action::Accept));
 	    io_uring_submit(&ring);
+	}
+
+	virtual void   pack() {};
+	virtual void unpack() {};
+};
+
+template<typename InMsg, typename OutMsg>
+struct peer_srlz : peer
+{
+	utttil::ring_buffer<std::unique_ptr< InMsg>>  inbox_msg = utttil::ring_buffer<std::unique_ptr< InMsg>>(1024);
+	utttil::ring_buffer<std::unique_ptr<OutMsg>> outbox_msg = utttil::ring_buffer<std::unique_ptr<OutMsg>>(1024);
+
+	std::function<void (peer_srlz * p)> on_message;
+
+	peer_srlz(io_uring & ring_, int file_)
+		: peer(ring_, file_)
+	{}
+
+	void post_send(std::unique_ptr<OutMsg> && msg)
+	{
+		outbox_msg.push_back(std::move(msg));
+
+	    io_uring_sqe * sqe = io_uring_get_sqe(&ring);
+	    io_uring_prep_nop(sqe);
+	    io_uring_sqe_set_data(sqe, (void*)((ptrdiff_t)this | Action::Pack));
+	    io_uring_submit(&ring);	
+	}
+	void pack() override
+	{
+		if (outbox_msg.empty())
+			return;
+		std::vector<char> v;
+		v.reserve(sizeof(typename decltype(outbox_msg)::value_type));
+		auto s = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(v));
+		s << *outbox_msg.front();
+		outbox_msg.pop_front();
+		post_write(std::move(v));
+	}
+	void unpack() override
+	{
 	}
 };
 
@@ -141,11 +189,11 @@ struct context
 	    return sock;
 	}
 
-	std::unique_ptr<peer> bind(int port)
+	int server_socket(int port)
 	{
 		int sock = this->socket();
 		if (sock == -1)
-			return {};
+			return -1;
 
 	    sockaddr_in srv_addr;
 	    ::memset(&srv_addr, 0, sizeof(srv_addr));
@@ -154,23 +202,20 @@ struct context
 	    srv_addr.sin_addr.s_addr = ::htonl(INADDR_ANY);
 	    if (::bind(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
 	        std::cerr << "bind() " << strerror(errno) << std::endl;;
-	        return {};
+	        return -1;
 	    }
 	    if (::listen(sock, 1024) < 0) {
 	        std::cerr << "listen() " << strerror(errno) << std::endl;;
-	        return {};
+	        return -1;
 	    }
-
-	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
-	    peer_sptr->post_accept();
-	    return peer_sptr;
+	    return sock;
 	}
 
-	std::unique_ptr<peer> connect(const char * addr, int port)
+	int client_socket(const char * addr, int port)
 	{
 		int sock = this->socket();
 		if (sock == -1) {
-			return {};
+			return -1;
 		}
 
 	    sockaddr_in srv_addr;
@@ -180,10 +225,57 @@ struct context
 	    srv_addr.sin_addr.s_addr = ::inet_addr(addr);
 	    if (::connect(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
 	        std::cerr << "connect() " << strerror(errno) << std::endl;;
-	        return {};
+	        return -1;
 	    }
+	    return sock;
+	}
+
+	std::unique_ptr<peer> bind(int port)
+	{
+		int sock = this->server_socket(port);
+		if (sock == -1)
+			return {};
 
 	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
+	    peer_sptr->post_accept();
+	    return peer_sptr;
+	}
+
+	std::unique_ptr<peer> connect(const char * addr, int port)
+	{
+		int sock = this->client_socket(addr, port);
+		if (sock == -1) {
+			return {};
+		}
+
+	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
+	    peer_sptr->post_read();
+	    return peer_sptr;
+	}
+
+	template<typename InMsg, typename OutMsg>
+	std::unique_ptr<peer_srlz<InMsg,OutMsg>> bind_srlz(int port)
+	{
+		int sock = this->server_socket(port);
+		if (sock == -1)
+			return {};
+
+	    std::unique_ptr<peer_srlz<InMsg,OutMsg>> peer_sptr(new peer_srlz<InMsg,OutMsg>{ring, sock});
+	    //peer_sptr->on_data = [](peer * p){ ((peer_srlz<InMsg,OutMsg>*)p)->unpack(); };
+	    peer_sptr->post_accept();
+	    return peer_sptr;
+	}
+
+	template<typename InMsg, typename OutMsg>
+	std::unique_ptr<peer_srlz<InMsg,OutMsg>> connect_srlz(const char * addr, int port)
+	{
+		int sock = this->client_socket(addr, port);
+		if (sock == -1) {
+			return {};
+		}
+
+	    std::unique_ptr<peer_srlz<InMsg,OutMsg>> peer_sptr(new peer_srlz<InMsg,OutMsg>{ring, sock});
+	    //peer_sptr->on_data = [](peer * p){ ((peer_srlz<InMsg,OutMsg>*)p)->unpack(); };
 	    peer_sptr->post_read();
 	    return peer_sptr;
 	}
@@ -252,10 +344,13 @@ struct context
 	                p->post_read();
 	                if (p->on_data)
 	                	p->on_data(p);
+	                p->unpack();
 	                break;
 	            case Action::Write:
-	            	std::cout << "written " << cqe->res << std::endl;
 	            	p->outbox.pop_front();
+	            	break;
+	            case Action::Pack:
+	            	p->pack();
 	            	break;
 	            default:
 	            	std::cerr << "Invalid action" << std::endl;
