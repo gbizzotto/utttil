@@ -40,7 +40,7 @@ bool test_data()
 
 	srv->on_accept = [&](utttil::iou::peer * p)
 		{
-			p->post_write(vec_from_str(sent_by_srv));
+			p->async_write(vec_from_str(sent_by_srv));
 		};
 	srv->on_data = [&](utttil::iou::peer * p)
 		{
@@ -78,7 +78,7 @@ bool test_data()
 			std::cout << "closed on client side" << std::endl;
 		};
 
-	cli->post_write(vec_from_str(sent_by_cli));
+	cli->async_write(vec_from_str(sent_by_cli));
 	
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -145,7 +145,7 @@ bool test_messages()
 	srv->on_accept = [&](utttil::iou::peer * p)
 		{
 			utttil::iou::msg_peer<message,message> * p2 = (utttil::iou::msg_peer<message,message> *)p;
-			p2->post_send(std::make_unique<message>(sent_by_srv));
+			p2->async_send(std::make_unique<message>(sent_by_srv));
 		};
 	srv->on_message = [&](utttil::iou::msg_peer<message,message> * p)
 		{
@@ -183,7 +183,7 @@ bool test_messages()
 			std::cout << "closed on client side" << std::endl;
 		};
 
-	cli->post_send(std::make_unique<message>(sent_by_cli));
+	cli->async_send(std::make_unique<message>(sent_by_cli));
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

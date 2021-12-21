@@ -72,7 +72,7 @@ struct peer
 		::shutdown(file, SHUT_RDWR);
 	}
 
-	void post_write(std::vector<char> && data)
+	void async_write(std::vector<char> && data)
 	{
 		//std::cout << "write " << data.size() << std::endl;
 		//for (char & c : data)
@@ -89,7 +89,7 @@ struct peer
 		io_uring_submit(&ring);
 	}
 
-	void post_read()
+	void async_read()
 	{
 		recv_buffer.resize(size_to_read);
 	    read_iov[0].iov_base = recv_buffer.data();
@@ -101,7 +101,7 @@ struct peer
 	    io_uring_submit(&ring);
 	}
 
-	void post_accept()
+	void async_accept()
 	{
 		accepted = make_peer();
 
@@ -140,7 +140,7 @@ struct peer
         	recv_buffer.resize(count);
         }
         inbox.push_back(std::move(recv_buffer));
-        post_read();
+        async_read();
         if (on_data)
         	on_data(this);
         unpack();
@@ -193,7 +193,7 @@ struct msg_peer : peer
 
 	peer * make_peer() override { return new msg_peer<InMsg,OutMsg>{ring, 0}; }
 
-	void post_send(std::unique_ptr<OutMsg> && msg)
+	void async_send(std::unique_ptr<OutMsg> && msg)
 	{
 		outbox_msg.push_back(std::move(msg));
 
@@ -211,7 +211,7 @@ struct msg_peer : peer
 		auto s = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(v));
 		s << *outbox_msg.front();
 		outbox_msg.pop_front();
-		post_write(std::move(v));
+		async_write(std::move(v));
 	}
 	void unpack() override
 	{
@@ -349,7 +349,7 @@ struct context
 			return {};
 
 	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
-	    peer_sptr->post_accept();
+	    peer_sptr->async_accept();
 	    return peer_sptr;
 	}
 
@@ -364,7 +364,7 @@ struct context
 		}
 
 	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
-	    peer_sptr->post_read();
+	    peer_sptr->async_read();
 	    return peer_sptr;
 	}
 
@@ -380,7 +380,7 @@ struct context
 
 	    std::unique_ptr<msg_peer<InMsg,OutMsg>> peer_sptr(new msg_peer<InMsg,OutMsg>{ring, sock});
 	    //peer_sptr->on_data = [](peer * p){ ((msg_peer<InMsg,OutMsg>*)p)->unpack(); };
-	    peer_sptr->post_accept();
+	    peer_sptr->async_accept();
 	    return peer_sptr;
 	}
 
@@ -397,7 +397,7 @@ struct context
 
 	    std::unique_ptr<msg_peer<InMsg,OutMsg>> peer_sptr(new msg_peer<InMsg,OutMsg>{ring, sock});
 	    //peer_sptr->on_data = [](peer * p){ ((msg_peer<InMsg,OutMsg>*)p)->unpack(); };
-	    peer_sptr->post_read();
+	    peer_sptr->async_read();
 	    return peer_sptr;
 	}
 
@@ -437,11 +437,11 @@ struct context
 	            {
 	            	peer * new_p = p->accepted;
 	            	new_p->file = cqe->res;
-	            	p->post_accept();
+	            	p->async_accept();
 	            	if (p->on_accept)
 	            		p->on_accept(new_p);
 	            	new_p->set_events_from(p);
-	                new_p->post_read();
+	                new_p->async_read();
 	                break;
 	            }
 	            case Action::Read:
