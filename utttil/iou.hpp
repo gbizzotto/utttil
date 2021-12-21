@@ -15,6 +15,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <iterator>
 
 #include <liburing.h>
 
@@ -45,6 +46,7 @@ struct peer
     iovec read_iov[1];
     iovec write_iov[1];
     size_t size_to_read = 16;
+    std::vector<char> recv_buffer;
 
 	peer * accepted = nullptr;
 	inline static socklen_t client_addr_len = sizeof(accepted->client_addr);
@@ -57,15 +59,25 @@ struct peer
 		: ring(ring_)
 		, file(file_)
 	{}
+	~peer()
+	{
+		std::cout <<"close"<< std::endl;
+		close();
+	}
 
 	void close()
 	{
 		// TODO use io_uring_prep_close ?
-		::close(file);
+		::shutdown(file, SHUT_RDWR);
 	}
 
 	void post_write(std::vector<char> && data)
 	{
+		//std::cout << "write " << data.size() << std::endl;
+		//for (char & c : data)
+		//	printf("%.02X ", c);
+		//printf("\n");
+
 		outbox.emplace_back(std::move(data));
 	    write_iov[0].iov_base = outbox.back().data();
 	    write_iov[0].iov_len = outbox.back().size();
@@ -78,10 +90,9 @@ struct peer
 
 	void post_read()
 	{
-		inbox.emplace_back();
-		inbox.back().resize(size_to_read);
-	    read_iov[0].iov_base = inbox.back().data();
-	    read_iov[0].iov_len = inbox.back().size();
+		recv_buffer.resize(size_to_read);
+	    read_iov[0].iov_base = recv_buffer.data();
+	    read_iov[0].iov_len = recv_buffer.size();
 
 	    io_uring_sqe * sqe = io_uring_get_sqe(&ring);
 	    io_uring_prep_readv(sqe, file, &read_iov[0], 1, 0);
@@ -91,7 +102,7 @@ struct peer
 
 	void post_accept()
 	{
-		accepted = new peer{ring, 0};
+		accepted = make_peer();
 
 		io_uring_sqe * sqe = io_uring_get_sqe(&ring);
 	    io_uring_prep_accept(sqe, file, (struct sockaddr*) &accepted->client_addr, &client_addr_len, 0);
@@ -99,21 +110,87 @@ struct peer
 	    io_uring_submit(&ring);
 	}
 
+	virtual peer * make_peer() { return new peer{ring, 0}; }
 	virtual void   pack() {};
 	virtual void unpack() {};
+	virtual void set_events_from(peer * p)
+	{
+    	if (p->on_data)
+    		this->on_data = p->on_data;
+    	if (p->on_close)
+    		this->on_close = p->on_close;
+	}
+
+	void sent(size_t count)
+	{
+		//std::cout << "sent " << count << std::endl;
+		if (count == outbox.front().size())
+			outbox.pop_front();
+		else if (count < outbox.front().size())
+			outbox.front().erase(outbox.front().begin(), outbox.front().begin()+count);
+	}
+	void rcvd(size_t count)
+	{
+    	if (count == recv_buffer.size() && size_to_read < 1024*1024) // buffer full
+    		size_to_read *= 2;
+    	else if (count < recv_buffer.size() / 2 && size_to_read > 16) // buffer mostly empty
+    	{
+    		size_to_read /= 2;
+        	recv_buffer.resize(count);
+        }
+        inbox.push_back(std::move(recv_buffer));
+        post_read();
+        if (on_data)
+        	on_data(this);
+        unpack();
+	}
+};
+
+struct inbox_reader
+{
+	peer & p;
+	decltype(p.inbox)::iterator it_inbox;
+	std::vector<char>::iterator it_vec;
+	inbox_reader(peer & p_)
+		: p(p_)
+		, it_inbox(p.inbox.begin())
+		, it_vec(it_inbox->begin())
+	{}
+	const auto & operator()()
+	{
+		while (it_vec == it_inbox->end())
+		{
+			++it_inbox;
+			if (it_inbox == p.inbox.end())
+				throw utttil::srlz::device::stream_end_exception();
+			it_vec = it_inbox->begin();
+		}
+		//printf("%.02X-\n", *it_vec);
+		return *it_vec++;
+	}
+	void update_inbox()
+	{
+		if (it_inbox != p.inbox.end())
+			it_inbox->erase(it_inbox->begin(), it_vec);
+		p.inbox.erase(p.inbox.begin(), it_inbox);
+	}
 };
 
 template<typename InMsg, typename OutMsg>
 struct msg_peer : peer
 {
-	utttil::ring_buffer<std::unique_ptr< InMsg>>  inbox_msg = utttil::ring_buffer<std::unique_ptr< InMsg>>(1024);
-	utttil::ring_buffer<std::unique_ptr<OutMsg>> outbox_msg = utttil::ring_buffer<std::unique_ptr<OutMsg>>(1024);
+	utttil::ring_buffer<std::unique_ptr< InMsg>>  inbox_msg;
+	utttil::ring_buffer<std::unique_ptr<OutMsg>> outbox_msg;
 
 	std::function<void (msg_peer * p)> on_message;
 
 	msg_peer(io_uring & ring_, int file_)
 		: peer(ring_, file_)
+		,  inbox_msg(1024)
+		, outbox_msg(1024)
 	{}
+
+	peer * make_peer() override { return new msg_peer<InMsg,OutMsg>{ring, 0}; }
 
 	void post_send(std::unique_ptr<OutMsg> && msg)
 	{
@@ -126,7 +203,7 @@ struct msg_peer : peer
 	}
 	void pack() override
 	{
-		if (outbox_msg.empty())
+		if (outbox_msg.empty() || outbox.full())
 			return;
 		std::vector<char> v;
 		v.reserve(sizeof(typename decltype(outbox_msg)::value_type));
@@ -137,6 +214,36 @@ struct msg_peer : peer
 	}
 	void unpack() override
 	{
+		if (inbox.empty() || inbox_msg.full())
+			return;
+
+		bool has_messages = false;
+
+		auto deserializer = utttil::srlz::from_binary(inbox_reader(*this));
+		for (;;)
+		{
+			auto msg_uptr = std::make_unique<InMsg>();
+			auto checkpoint = deserializer.read;
+			try {
+				deserializer >> *msg_uptr;
+				inbox_msg.push_back(std::move(msg_uptr));
+				has_messages = true;
+			} catch (utttil::srlz::device::stream_end_exception &) {
+				checkpoint.update_inbox();
+				break;
+			}
+		}
+		if (has_messages && on_message)
+			on_message(this);
+	}
+	void set_events_from(peer * p) override
+	{
+    	if (p->on_data)
+    		this->on_data = p->on_data;
+    	if (p->on_close)
+    		this->on_close = p->on_close;
+    	if (((msg_peer<InMsg,OutMsg>*)p)->on_message)
+    		this->on_message = ((msg_peer<InMsg,OutMsg>*)p)->on_message;
 	}
 };
 
@@ -235,7 +342,7 @@ struct context
 	{
 		if (url.protocol != "tcp")
 			return {};
-		
+
 		int sock = this->server_socket(std::stoull(url.port));
 		if (sock == -1)
 			return {};
@@ -332,10 +439,7 @@ struct context
 	            	p->post_accept();
 	            	if (p->on_accept)
 	            		p->on_accept(new_p);
-	            	if (p->on_data)
-	            		new_p->on_data = p->on_data;
-	            	if (p->on_close)
-	            		new_p->on_close = p->on_close;
+	            	new_p->set_events_from(p);
 	                new_p->post_read();
 	                break;
 	            }
@@ -346,21 +450,11 @@ struct context
 		            		p->on_close(p);
 		            	break;
 	            	}
-	            	std::cout << "read " << cqe->res << std::endl;
-	            	if (cqe->res == p->inbox.back().size() && p->size_to_read < 1024*1024) // buffer full
-	            		p->size_to_read *= 2;
-	            	else if (cqe->res < p->inbox.back().size() / 2 && p->size_to_read > 16) // buffer mostly empty
-	            	{
-	            		p->size_to_read /= 2;
-	                	p->inbox.back().resize(cqe->res);
-	                }
-	                p->post_read();
-	                if (p->on_data)
-	                	p->on_data(p);
-	                p->unpack();
+	            	//std::cout << "read " << cqe->res << std::endl;
+	            	p->rcvd(cqe->res);
 	                break;
 	            case Action::Write:
-	            	p->outbox.pop_front();
+	            	p->sent(cqe->res);
 	            	break;
 	            case Action::Pack:
 	            	p->pack();

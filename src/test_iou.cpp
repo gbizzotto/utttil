@@ -22,7 +22,7 @@ bool test_data()
     const std::string sent_by_cli = "You keep using that word. I don't think it means what you think it means.";
     const std::string sent_by_srv = "My name is Inigo Montoya. You killed my father. Prepare to die.";
 
-    utttil::url url("tcp://localhost:8000");
+    utttil::url url("tcp://127.0.0.1:8000");
 
     std::string rcvd_by_srv;
     std::string rcvd_by_cli_welcome;
@@ -123,15 +123,13 @@ inline bool operator==(const message & left, const message & right)
 
 bool test_messages()
 {
-	return true;
-
     const message sent_by_cli{"Inconceivable! As you wish.", 1234};
     const message sent_by_srv{"Have fun storming the casle!", 4321};
 
     message rcvd_by_srv;
     message rcvd_by_cli_welcome;
 
-    utttil::url url("tcp://localhost:8000");
+    utttil::url url("tcp://127.0.0.1:8000");
 
     // server
 
@@ -141,7 +139,7 @@ bool test_messages()
 	if ( ! srv)
 	{
 		std::cerr << "Bind failed" << std::endl;
-		return -1;
+		return false;
 	}
 
 	srv->on_accept = [&](utttil::iou::peer * p)
@@ -170,7 +168,7 @@ bool test_messages()
 	if ( ! cli)
 	{
 		std::cerr << "Connect failed" << std::endl;
-		return -1;
+		return false;
 	}
 
 	cli->on_message = [&](utttil::iou::msg_peer<message,message> * p)
@@ -186,7 +184,6 @@ bool test_messages()
 		};
 
 	cli->post_send(std::make_unique<message>(sent_by_cli));
-	
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
