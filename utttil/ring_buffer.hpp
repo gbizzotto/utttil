@@ -15,8 +15,6 @@ struct ring_buffer
 	const size_t capacity_;
 	std::atomic_size_t front_ = 0;
 	std::atomic_size_t back_ = 0;
-	//std::atomic_bool full_ = false;
-	//std::atomic_bool empty_ = true;
 
 	ring_buffer(size_t capacity)
 		: data((T*) malloc(sizeof(T) * (capacity+1)))
@@ -24,14 +22,40 @@ struct ring_buffer
 	{}
 	~ring_buffer()
 	{
-		while( ! empty())
-			pop_front();
+		clear();
 		free(data);
 	}
 
 		// TODO no %
 	size_t inc(size_t v) const { return (v+1) % capacity_; }
 	size_t dec(size_t v) const { return (v-1+capacity_) % capacity_; }
+
+	struct iterator
+	{
+		ring_buffer & rb;
+		size_t front;
+		iterator & operator++() { front = rb.inc(front); return *this; }
+		T & operator*() { return rb.data[front]; }
+		T * operator->() { return &rb.data[front]; }
+		bool operator==(const iterator & other) { return front == other.front; }
+		bool operator!=(const iterator & other) { return front != other.front; }
+	};
+	iterator begin() { return iterator{*this, front_}; }
+	iterator   end() { return iterator{*this,  back_}; }
+
+	void erase(iterator it, const iterator end_)
+	{
+		if (it != begin())
+			throw std::exception();
+		for ( ; it!=end_ ; ++it)
+			pop_front();
+	}
+
+	void clear()
+	{
+		while( ! empty())
+			pop_front();
+	}
 
 	size_t capacity() const
 	{
@@ -73,8 +97,6 @@ struct ring_buffer
 			throw std::exception();
 		data[front_].~T();
 		front_ = inc(front_);
-		//empty_ = front_ == back_;
-		//full_ = false;
 	}
 	void pop_back()
 	{
@@ -83,8 +105,6 @@ struct ring_buffer
 		size_t b = dec(back_);
 		data[b].~T();
 		back_ = b;
-		//empty_ = front_ == back_;
-		//full_ = false;
 	}
 
 	T & push_front(T && t)
@@ -95,8 +115,6 @@ struct ring_buffer
 		new (&data[f]) T(std::forward<T>(t));
 		T & result = data[f];
 		front_ = f;
-		//full_ = front_ == back_;
-		//empty_ = false;
 		return result;
 	}
 	T & push_back(T && t)
@@ -106,8 +124,6 @@ struct ring_buffer
 		new (&data[back_]) T(std::forward<T>(t));
 		T & result = data[back_];
 		back_ = inc(back_);
-		//full_ = front_ == back_;
-		//empty_ = false;
 		return result;
 	}
 
@@ -119,8 +135,6 @@ struct ring_buffer
 		new (&data[f]) T(t);
 		T & result = data[f];
 		front_ = f;
-		//full_ = front_ == back_;
-		//empty_ = false;
 		return result;
 	}
 	T & push_back(const T & t)
@@ -130,8 +144,6 @@ struct ring_buffer
 		new (&data[back_]) T(t);
 		T & result = data[back_];
 		back_ = inc(back_);
-		//full_ = front_ == back_;
-		//empty_ = false;
 		return result;
 	}
 
@@ -144,8 +156,6 @@ struct ring_buffer
 		new (&data[f]) T(params...);
 		T & result = data[f];
 		front_ = f;
-		//full_ = front_ == back_;
-		//empty_ = false;
 		return result;
 	}
 	template<typename ...P>
@@ -156,8 +166,6 @@ struct ring_buffer
 		new (&data[back_]) T(params...);
 		T & result = data[back_];
 		back_ = inc(back_);
-		//full_ = front_ == back_;
-		//empty_ = false;
 		return result;
 	}
 };
