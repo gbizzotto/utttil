@@ -193,6 +193,15 @@ struct msg_peer : peer
 
 	peer * make_peer() override { return new msg_peer<InMsg,OutMsg>{ring, 0}; }
 
+	std::unique_ptr<InMsg> read()
+	{
+		while(inbox_msg.empty())
+		{}
+		auto result = std::move(inbox_msg.front());
+		inbox_msg.pop_front();
+		return result;
+	}
+
 	void async_send(std::unique_ptr<OutMsg> && msg)
 	{
 		outbox_msg.push_back(std::move(msg));
@@ -339,7 +348,7 @@ struct context
 	    return sock;
 	}
 
-	std::unique_ptr<peer> bind(utttil::url url)
+	std::unique_ptr<peer> bind(utttil::url url, std::function<void(peer*)> on_accept_=nullptr, std::function<void(peer*)> on_data_=nullptr, std::function<void(peer*)> on_close_=nullptr)
 	{
 		if (url.protocol != "tcp")
 			return {};
@@ -349,11 +358,17 @@ struct context
 			return {};
 
 	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
+	    if (on_accept_)
+	    	peer_sptr->on_accept = on_accept_;
+	    if (on_data_)
+	    	peer_sptr->on_data = on_data_;
+	    if (on_close_)
+	    	peer_sptr->on_close = on_close_;
 	    peer_sptr->async_accept();
 	    return peer_sptr;
 	}
 
-	std::unique_ptr<peer> connect(const utttil::url url)
+	std::unique_ptr<peer> connect(const utttil::url url, std::function<void(peer*)> on_data_=nullptr, std::function<void(peer*)> on_close_=nullptr)
 	{
 		if (url.protocol != "tcp")
 			return {};
@@ -364,12 +379,16 @@ struct context
 		}
 
 	    std::unique_ptr<peer> peer_sptr(new peer{ring, sock});
+	    if (on_data_)
+	    	peer_sptr->on_data = on_data_;
+	    if (on_close_)
+	    	peer_sptr->on_close = on_close_;
 	    peer_sptr->async_read();
 	    return peer_sptr;
 	}
 
 	template<typename InMsg, typename OutMsg>
-	std::unique_ptr<msg_peer<InMsg,OutMsg>> bind_srlz(const utttil::url url)
+	std::unique_ptr<msg_peer<InMsg,OutMsg>> bind_srlz(const utttil::url url, std::function<void(peer*)> on_accept_=nullptr, std::function<void(msg_peer<InMsg,OutMsg>*)> on_msg_=nullptr, std::function<void(peer*)> on_close_=nullptr)
 	{
 		if (url.protocol != "tcp")
 			return {};
@@ -379,13 +398,18 @@ struct context
 			return {};
 
 	    std::unique_ptr<msg_peer<InMsg,OutMsg>> peer_sptr(new msg_peer<InMsg,OutMsg>{ring, sock});
-	    //peer_sptr->on_data = [](peer * p){ ((msg_peer<InMsg,OutMsg>*)p)->unpack(); };
+	    if (on_accept_)
+	    	peer_sptr->on_accept = on_accept_;
+	    if (on_msg_)
+	    	peer_sptr->on_message = on_msg_;
+	    if (on_close_)
+	    	peer_sptr->on_close = on_close_;
 	    peer_sptr->async_accept();
 	    return peer_sptr;
 	}
 
 	template<typename InMsg, typename OutMsg>
-	std::unique_ptr<msg_peer<InMsg,OutMsg>> connect_srlz(const utttil::url url)
+	std::unique_ptr<msg_peer<InMsg,OutMsg>> connect_srlz(const utttil::url url, std::function<void(msg_peer<InMsg,OutMsg>*)> on_msg_=nullptr, std::function<void(peer*)> on_close_=nullptr)
 	{
 		if (url.protocol != "tcp")
 			return {};
@@ -396,7 +420,10 @@ struct context
 		}
 
 	    std::unique_ptr<msg_peer<InMsg,OutMsg>> peer_sptr(new msg_peer<InMsg,OutMsg>{ring, sock});
-	    //peer_sptr->on_data = [](peer * p){ ((msg_peer<InMsg,OutMsg>*)p)->unpack(); };
+	    if (on_msg_)
+	    	peer_sptr->on_message = on_msg_;
+	    if (on_close_)
+	    	peer_sptr->on_close = on_close_;
 	    peer_sptr->async_read();
 	    return peer_sptr;
 	}

@@ -59,24 +59,25 @@ bool test_data()
 
 	utttil::iou::context cli_ctx;
 	cli_ctx.run();
-	auto cli = cli_ctx.connect(url);
-	if ( ! cli)
-	{
-		std::cerr << "Connect failed" << std::endl;
-		return -1;
-	}
 
-	cli->on_data = [&](utttil::iou::peer * p)
+	auto on_data = [&](utttil::iou::peer * p)
 		{
 			rcvd_by_cli_welcome += str_from_vec(p->inbox.front());
 
 			std::cout << "cli " << p->inbox.front().size() << " " << str_from_vec(p->inbox.front()) << std::endl;
 			p->inbox.pop_front();
 		};
-	cli->on_close = [](utttil::iou::peer * p)
+	auto on_close = [](utttil::iou::peer * p)
 		{
 			std::cout << "closed on client side" << std::endl;
 		};
+	auto cli = cli_ctx.connect(url, on_data, on_close);
+	if ( ! cli)
+	{
+		std::cerr << "Connect failed" << std::endl;
+		return -1;
+	}
+
 
 	cli->async_write(vec_from_str(sent_by_cli));
 	
@@ -135,29 +136,30 @@ bool test_messages()
 
 	utttil::iou::context srv_ctx;
 	srv_ctx.run();
-	auto srv = srv_ctx.bind_srlz<message,message>(url);
-	if ( ! srv)
-	{
-		std::cerr << "Bind failed" << std::endl;
-		return false;
-	}
 
-	srv->on_accept = [&](utttil::iou::peer * p)
+	auto on_accept = [&](utttil::iou::peer * p)
 		{
 			utttil::iou::msg_peer<message,message> * p2 = (utttil::iou::msg_peer<message,message> *)p;
 			p2->async_send(std::make_unique<message>(sent_by_srv));
 		};
-	srv->on_message = [&](utttil::iou::msg_peer<message,message> * p)
+	auto on_message = [&](utttil::iou::msg_peer<message,message> * p)
 		{
 			rcvd_by_srv = *p->inbox_msg.front();
 
 			std::cout << "srv " << p->inbox_msg.front()->str << " " << p->inbox_msg.front()->i << std::endl;
 			p->inbox_msg.pop_front();
 		};
-	srv->on_close = [](utttil::iou::peer * p)
+	auto on_close = [](utttil::iou::peer * p)
 		{
 			std::cout << "closed on server side" << std::endl;
 		};
+
+	auto srv = srv_ctx.bind_srlz<message,message>(url, on_accept, on_message, on_close);
+	if ( ! srv)
+	{
+		std::cerr << "Bind failed" << std::endl;
+		return false;
+	}
 
 
 	// client
