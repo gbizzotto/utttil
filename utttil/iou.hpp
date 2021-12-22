@@ -211,16 +211,21 @@ struct msg_peer : peer
 	    io_uring_sqe_set_data(sqe, (void*)((ptrdiff_t)this | Action::Pack));
 	    io_uring_submit(&ring);	
 	}
+	void send(const OutMsg & msg)
+	{
+		std::vector<char> v;
+		v.reserve(sizeof(msg));
+		auto s = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(v));
+		s << msg;
+		async_write(std::move(v));
+	}
+
 	void pack() override
 	{
 		if (outbox_msg.empty() || outbox.full())
 			return;
-		std::vector<char> v;
-		v.reserve(sizeof(typename decltype(outbox_msg)::value_type));
-		auto s = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(v));
-		s << *outbox_msg.front();
+		send(*outbox_msg.front());
 		outbox_msg.pop_front();
-		async_write(std::move(v));
 	}
 	void unpack() override
 	{
