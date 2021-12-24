@@ -62,8 +62,9 @@ struct peer
 	{}
 	~peer()
 	{
-		std::cout <<"close"<< std::endl;
+		std::cout <<"iou ~peer close"<< std::endl;
 		close();
+		//std::cout <<"~peer done"<< std::endl;
 	}
 
 	void close()
@@ -72,9 +73,17 @@ struct peer
 		::shutdown(file, SHUT_RDWR);
 	}
 
+	size_t inbox_size()
+	{
+		size_t result = 0;
+		for (auto it=inbox.begin() ; it!=inbox.end() ; ++it)
+			result += it->size();
+		return result;
+	}
+
 	void async_write(std::vector<char> && data)
 	{
-		//std::cout << "write " << data.size() << std::endl;
+		//std::cout << "iou write " << data.size() << std::endl;
 		//for (char & c : data)
 		//	printf("%.02X ", c);
 		//printf("\n");
@@ -91,6 +100,7 @@ struct peer
 
 	void async_read()
 	{
+		//std::cout << "iou == async_read" << std::endl;
 		recv_buffer.resize(size_to_read);
 	    read_iov[0].iov_base = recv_buffer.data();
 	    read_iov[0].iov_len = recv_buffer.size();
@@ -132,13 +142,11 @@ struct peer
 	}
 	void rcvd(size_t count)
 	{
-    	if (count == recv_buffer.size() && size_to_read < 1024*1024) // buffer full
+    	if (count == recv_buffer.size() && size_to_read < 2048) // buffer full
     		size_to_read *= 2;
-    	else if (count < recv_buffer.size() / 2 && size_to_read > 16) // buffer mostly empty
-    	{
+    	else if (count < recv_buffer.size() / 2 && size_to_read > 32) // buffer mostly empty
     		size_to_read /= 2;
-        	recv_buffer.resize(count);
-        }
+        recv_buffer.resize(count);
         inbox.push_back(std::move(recv_buffer));
         async_read();
         if (on_data)
@@ -149,12 +157,12 @@ struct peer
 
 struct inbox_reader
 {
-	peer & p;
-	decltype(p.inbox)::iterator it_inbox;
+	peer * p;
+	typename utttil::ring_buffer<std::vector<no_init<char>>>::iterator it_inbox;
 	std::vector<no_init<char>>::iterator it_vec;
 	inbox_reader(peer & p_)
-		: p(p_)
-		, it_inbox(p.inbox.begin())
+		: p(&p_)
+		, it_inbox(p->inbox.begin())
 		, it_vec(it_inbox->begin())
 	{}
 	const auto & operator()()
@@ -162,18 +170,33 @@ struct inbox_reader
 		while (it_vec == it_inbox->end())
 		{
 			++it_inbox;
-			if (it_inbox == p.inbox.end())
+			if (it_inbox == p->inbox.end())
 				throw utttil::srlz::device::stream_end_exception();
 			it_vec = it_inbox->begin();
 		}
 		//printf("%.02X-\n", *it_vec);
 		return *it_vec++;
 	}
+	size_t inbox_size_left()
+	{
+		auto it = it_inbox;
+		size_t result = std::distance(it_vec, it_inbox->end());
+		for (++it ; it!=p->inbox.end() ; ++it)
+			result += it->size();
+		return result;
+	}
 	void update_inbox()
 	{
-		if (it_inbox != p.inbox.end())
+		while (it_vec == it_inbox->end())
+		{
+			++it_inbox;
+			if (it_inbox == p->inbox.end())
+				break;
+			it_vec = it_inbox->begin();
+		}		//std::cout << "update_inbox" << std::endl;
+		if (it_inbox != p->inbox.end())
 			it_inbox->erase(it_inbox->begin(), it_vec);
-		p.inbox.erase(p.inbox.begin(), it_inbox);
+		p->inbox.erase(p->inbox.begin(), it_inbox);
 	}
 };
 
@@ -197,6 +220,7 @@ struct msg_peer : peer
 	{
 		while(inbox_msg.empty())
 		{}
+		//	std::this_thread::sleep_for(std::chrono::microseconds(1));
 		auto result = std::move(inbox_msg.front());
 		inbox_msg.pop_front();
 		return result;
@@ -204,6 +228,8 @@ struct msg_peer : peer
 
 	void async_send(std::unique_ptr<OutMsg> && msg)
 	{
+		if ( ! msg)
+			throw std::exception();
 		outbox_msg.push_back(std::move(msg));
 
 	    io_uring_sqe * sqe = io_uring_get_sqe(&ring);
@@ -214,9 +240,14 @@ struct msg_peer : peer
 	void send(const OutMsg & msg)
 	{
 		std::vector<char> v;
-		v.reserve(sizeof(msg));
+		v.reserve(sizeof(msg)+2);
+		v.push_back(0);
+		v.push_back(0);
 		auto s = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(v));
 		s << msg;
+		size_t size = v.size() - 2;
+		v.front() = (size/256) & 0xFF;
+		*std::next(v.begin()) = size & 0xFF;
 		async_write(std::move(v));
 	}
 
@@ -229,25 +260,61 @@ struct msg_peer : peer
 	}
 	void unpack() override
 	{
-		if (inbox.empty() || inbox_msg.full())
+		//std::cout << "unpack" << std::endl;
+		if (inbox.empty()) {
+			std::cout << "unpack but inbox is empty" << std::endl;
 			return;
+		}
+		if (inbox_msg.full()) {
+			std::cout << "unpack but inbox_msg is full" << std::endl;
+			return;
+		}
 
 		bool has_messages = false;
-
 		auto deserializer = utttil::srlz::from_binary(inbox_reader(*this));
+		auto checkpoint = deserializer.read;
 		for (;;)
 		{
-			auto msg_uptr = std::make_unique<InMsg>();
-			auto checkpoint = deserializer.read;
+			//std::cout << "loop init inbox_size: " << inbox_size() << ", inbox: " << inbox << std::endl;
+			//std::cout << "loop init inbox_msg: " << inbox_msg << std::endl;
+			//std::cout << "loop init deserializer: it_inbox: " << deserializer.read.it_inbox.pos << std::endl;
+			//std::cout << "new checkpoint: it_inbox: " << checkpoint.it_inbox.pos << std::endl;
 			try {
+				if (deserializer.read.inbox_size_left() < 2) {
+					//std::cout << "deserializer.read.inbox_size_left() < 2" << std::endl;
+					//std::cout << "-1 checkpoint: it_inbox: " << checkpoint.it_inbox.pos << std::endl;
+					break;
+				}
+				int msg_size = (deserializer.read() << 8) + deserializer.read();
+				//std::cout << "msg_size: " << msg_size << std::endl;
+				if (msg_size == 0) {
+					std::cout << "iou msg size is zero, this can't be good..." << std::endl;
+					break;
+				}
+				if (msg_size > deserializer.read.inbox_size_left()) {
+					std::cout << "iou inbox does not contain a full msg" << std::endl;
+					//std::cout << "-2 checkpoint: it_inbox: " << checkpoint.it_inbox.pos << std::endl;
+					break;
+				}
+				auto msg_uptr = std::make_unique<InMsg>();
+				//std::cout << "about de deserialize a message. deserializer: it_inbox: " << deserializer.read.it_inbox.pos << std::endl;
 				deserializer >> *msg_uptr;
+				//std::cout << "msg deserialized. deserializer: it_inbox: " << deserializer.read.it_inbox.pos << std::endl;
+
 				inbox_msg.push_back(std::move(msg_uptr));
+
+				//std::cout << "2 inbox_size: " << inbox_size() << ", inbox: " << inbox << std::endl;
+				//std::cout << "2 inbox_msg: " << inbox_msg << std::endl;
+
 				has_messages = true;
 			} catch (utttil::srlz::device::stream_end_exception &) {
-				checkpoint.update_inbox();
+				//std::cout << "utttil::srlz::device::stream_end_exception" << std::endl;
+				//std::cout << "-3 checkpoint: it_inbox: " << checkpoint.it_inbox.pos << std::endl;
 				break;
 			}
+			checkpoint = deserializer.read;
 		}
+		checkpoint.update_inbox();
 		if (has_messages && on_message)
 			on_message(this);
 	}
@@ -446,8 +513,9 @@ struct context
 	    while (go_on)
 	    {
 	        int ret = io_uring_wait_cqe_timeout(&ring, &cqe, &timeout);
-	        if (ret == -ETIME)
+	        if (ret == -ETIME) {
 	        	continue;
+	        }
 	        if (ret < 0) {
 	        	std::cerr << "io_uring_wait_cqe_timeout failed: " << errno << " " << strerror(-ret) << std::endl;
 	        	continue;
@@ -461,6 +529,7 @@ struct context
 	            p->close();
 	            return;
 	        }
+	        //std::cout << "action: " << action << std::endl;
 	        switch (action)
 	        {
 	            case Action::None:
@@ -483,7 +552,7 @@ struct context
 		            		p->on_close(p);
 		            	break;
 	            	}
-	            	//std::cout << "read " << cqe->res << std::endl;
+	            	//std::cout << "iou read " << cqe->res << std::endl;
 	            	p->rcvd(cqe->res);
 	                break;
 	            case Action::Write:
@@ -493,7 +562,7 @@ struct context
 	            	p->pack();
 	            	break;
 	            default:
-	            	std::cerr << "Invalid action" << std::endl;
+	            	std::cerr << "iou Invalid action" << std::endl;
 	            	break;
 	        }
 	        /* Mark this request as processed */

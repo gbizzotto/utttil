@@ -32,27 +32,33 @@ struct ring_buffer
 
 	struct iterator
 	{
-		ring_buffer & rb;
-		size_t front;
-		iterator & operator++() { front = rb.inc(front); return *this; }
-		T & operator*() { return rb.data[front]; }
-		T * operator->() { return &rb.data[front]; }
-		bool operator==(const iterator & other) { return front == other.front; }
-		bool operator!=(const iterator & other) { return front != other.front; }
+		ring_buffer * rb;
+		size_t pos;
+		iterator & operator++() { pos = rb->inc(pos); return *this; }
+		T & operator*() { return rb->data[pos]; }
+		T * operator->() { return &rb->data[pos]; }
+		bool operator==(const iterator & other) { return pos == other.pos; }
+		bool operator!=(const iterator & other) { return pos != other.pos; }
 	};
-	iterator begin() { return iterator{*this, front_}; }
-	iterator   end() { return iterator{*this,  back_}; }
+	iterator begin() { return iterator{this, front_}; }
+	iterator   end() { return iterator{this,  back_}; }
 
-	void erase(iterator it, const iterator end_)
+	void erase(iterator it, const iterator & end_)
 	{
+		//std::cout << "ring_buffer sizeof(T) " << sizeof(T) << ", erase" << std::endl;
 		if (it != begin())
 			throw std::exception();
 		for ( ; it!=end_ ; ++it)
+		{
+			if (it == end())
+				throw std::exception();
 			pop_front();
+		}
 	}
 
 	void clear()
 	{
+		//std::cout << "ring_buffer sizeof(T) " << sizeof(T) << ", clear" << std::endl;
 		while( ! empty())
 			pop_front();
 	}
@@ -85,6 +91,18 @@ struct ring_buffer
 		return data[front_];
 	}
 	T & back()
+	{
+		if (empty())
+			throw std::exception();
+		return data[dec(back_)];
+	}
+	const T & front() const
+	{
+		if (empty())
+			throw std::exception();
+		return data[front_];
+	}
+	const T & back() const
 	{
 		if (empty())
 			throw std::exception();
@@ -169,5 +187,11 @@ struct ring_buffer
 		return result;
 	}
 };
+
+template<typename Out, typename T>
+Out & operator<<(Out & out, const utttil::ring_buffer<T> & rb)
+{
+	return out << "ring_buffer sizeof(T): " << sizeof(T) << ", capacity: " << rb.capacity() << ", front_: " << rb.front_ << ", back: " << rb.back_;
+}
 
 } // namespace
