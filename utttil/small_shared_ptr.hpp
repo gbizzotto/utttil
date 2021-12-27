@@ -14,11 +14,7 @@ struct small_shared_ptr_counter_base
 {
 	size_t count = 1;
 	size_t weak_count = 0;
-	void inc()
-	{
-		if (count != 0)
-			++count;
-	}
+	void inc() { count += (count != 0); }
 	virtual void dec() = 0;
 	virtual T * get() = 0;
 	virtual const T * get() const = 0;
@@ -33,9 +29,7 @@ struct small_shared_ptr_counter : small_shared_ptr_counter_base<T>
 	{}
 	void dec() override
 	{
-		if (this->count == 0)
-			return;
-		--this->count;
+		this->count -= (this->count != 0);
 		if (this->count == 0)
 		{
 			delete t;
@@ -56,9 +50,7 @@ struct small_shared_ptr_counter_in_place : small_shared_ptr_counter_base<T>
 	{}
 	void dec() override
 	{
-		if (this->count == 0)
-			return;
-		--this->count;
+		this->count -= (this->count != 0);
 		if (this->count == 0)
 			t.~T();
 	}
@@ -256,17 +248,13 @@ struct small_weak_ptr
 
 	void increase()
 	{
-		if ( ! counter)
-			return;
-		++counter->weak_count;
+		counter->weak_count += (counter != nullptr);
 	}
 	void decrease()
 	{
 		if ( ! counter)
 			return;
-		if (counter->weak_count == 0)
-			return;
-		--counter->weak_count;
+		counter->weak_count -= (counter->weak_count != 0);
 		if (counter->weak_count == 0 && counter->count == 0)
 		{
 			delete counter;
