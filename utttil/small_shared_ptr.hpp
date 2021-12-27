@@ -10,11 +10,60 @@
 namespace utttil {
 
 template<typename T>
-struct small_shared_ptr_counter
+struct small_shared_ptr_counter_base
 {
-	size_t count = 0;
+	size_t count = 1;
 	size_t weak_count = 0;
+	void inc()
+	{
+		if (count != 0)
+			++count;
+	}
+	virtual void dec() = 0;
+	virtual T * get() = 0;
+	virtual const T * get() const = 0;
+};
+
+template<typename T>
+struct small_shared_ptr_counter : small_shared_ptr_counter_base<T>
+{
 	T * t = nullptr;
+	small_shared_ptr_counter(T * t_)
+		: t(t_)
+	{}
+	void dec() override
+	{
+		if (this->count == 0)
+			return;
+		--this->count;
+		if (this->count == 0)
+		{
+			delete t;
+			t = nullptr;
+		}
+	}
+	      T * get()       override { return t; }
+	const T * get() const override { return t; }
+};
+
+template<typename T>
+struct small_shared_ptr_counter_in_place : small_shared_ptr_counter_base<T>
+{
+	T t;
+	template<typename...Args>
+	small_shared_ptr_counter_in_place(Args...args)
+		: t(args...)
+	{}
+	void dec() override
+	{
+		if (this->count == 0)
+			return;
+		--this->count;
+		if (this->count == 0)
+			t.~T();
+	}
+	      T * get()       override { return this->count == 0 ? nullptr : &t; }
+	const T * get() const override { return this->count == 0 ? nullptr : &t; }
 };
 
 template<typename T>
@@ -23,31 +72,34 @@ struct enable_small_shared_from_this;
 template<typename T>
 struct small_shared_ptr
 {
-	small_shared_ptr_counter<T> * counter;
+	small_shared_ptr_counter_base<T> * counter;
 
 	small_shared_ptr() noexcept
 		: counter(nullptr)
 	{}	
 	small_shared_ptr(std::nullptr_t) noexcept
 		: counter(nullptr)
-	{}	
+	{}
+	template<typename U=T, typename...Args, std::enable_if_t<!std::is_base_of<enable_small_shared_from_this<U>,U>::value, bool> = true>
 	small_shared_ptr(T * && t)
 	{
 		if (t) {
-			counter = new small_shared_ptr_counter<T>{1, 0, t};
+			counter = new small_shared_ptr_counter<T>(t);
 			t = nullptr;
 		} else
 			counter = nullptr;
 	}
+	template<typename U=T, typename...Args, std::enable_if_t<std::is_base_of<enable_small_shared_from_this<U>,U>::value, bool> = true>
 	small_shared_ptr(enable_small_shared_from_this<T> * && t)
 	{
-		if (t) {
-			counter = new small_shared_ptr_counter<T>{1, 0, t};
-			t->enable_small_shared_from_this_counter = counter;
+		if (t)
+		{
+			counter = new small_shared_ptr_counter<T>((T*)t);
+			counter->get()->enable_small_shared_from_this_counter = counter;
 			t = nullptr;
 		} else
 			counter = nullptr;
-	} 
+	}
 	small_shared_ptr(small_shared_ptr & other)
 	{
 		if (this == &other)
@@ -59,8 +111,10 @@ struct small_shared_ptr
 	{
 		if (this == &other)
 			counter = nullptr;
-		else
-			std::swap(counter, other.counter);
+		else {
+			counter = other.counter;
+			other.counter = nullptr;
+		}
 	}
 	small_shared_ptr & operator=(const small_shared_ptr & other)
 	{
@@ -93,26 +147,17 @@ struct small_shared_ptr
 	{
 		if ( ! counter)
 			return;
-		if (counter->count == 0)
-			return;
-		++counter->count;
+		counter->inc();
 	}
 	void decrease()
 	{
 		if ( ! counter)
 			return;
-		if (counter->count == 0)
-			return;
-		--counter->count;
-		if (counter->count == 0)
+		counter->dec();
+		if (counter->count == 0 && counter->weak_count == 0)
 		{
-			delete counter->t;
-			counter->t = nullptr;
-			if (counter->weak_count == 0)
-			{
-				delete counter;
-				counter = nullptr;
-			}
+			delete counter;
+			counter = nullptr;
 		}
 	}
 
@@ -125,19 +170,19 @@ struct small_shared_ptr
 	{
 		decrease();
 		if (t)
-			counter = new small_shared_ptr_counter<T>{1, 0, t};
+			counter = new small_shared_ptr_counter<T>(t);
 		else
 			counter = nullptr;
 	}
 
 	size_t use_count() const { return counter == nullptr ? 0 : counter->count; }
 
-	      T * get()       { return counter == nullptr ? nullptr : counter->t; }
-	const T * get() const { return counter == nullptr ? nullptr : counter->t; }
-	      T * operator->()       { return counter == nullptr ? nullptr : counter->t; }
-	const T * operator->() const { return counter == nullptr ? nullptr : counter->t; }
-	      T & operator*()       { return *(counter->t); }
-	const T & operator*() const { return *(counter->t); }
+	      T * get()       { return counter == nullptr ? nullptr : counter->get(); }
+	const T * get() const { return counter == nullptr ? nullptr : counter->get(); }
+	      T * operator->()       { return counter == nullptr ? nullptr : counter->get(); }
+	const T * operator->() const { return counter == nullptr ? nullptr : counter->get(); }
+	      T & operator*()       { return *(counter->get()); }
+	const T & operator*() const { return *(counter->get()); }
 
 	operator bool() const
 	{
@@ -148,7 +193,7 @@ struct small_shared_ptr
 template<typename T>
 struct small_weak_ptr
 {
-	small_shared_ptr_counter<T> * counter;
+	small_shared_ptr_counter_base<T> * counter;
 
 	small_weak_ptr() noexcept
 		: counter(nullptr)
@@ -251,21 +296,24 @@ struct small_weak_ptr
 template<typename T, typename...Args, std::enable_if_t<!std::is_base_of<enable_small_shared_from_this<T>,T>::value, bool> = true>
 small_shared_ptr<T> make_small_shared(Args...args)
 {
-	return small_shared_ptr(new T(args...));
+	small_shared_ptr<T> result;
+	result.counter = new small_shared_ptr_counter_in_place<T>(args...);
+	return result;
 }
 
 template<typename T, typename...Args, std::enable_if_t<std::is_base_of<enable_small_shared_from_this<T>,T>::value, bool> = true>
 small_shared_ptr<T> make_small_shared(Args...args)
 {
-	auto result = small_shared_ptr(new T(args...));
-	result.counter->t->enable_small_shared_from_this_counter = result.counter;
+	small_shared_ptr<T> result;
+	result.counter = new small_shared_ptr_counter_in_place<T>(args...);
+	result.counter->get()->enable_small_shared_from_this_counter = result.counter;
 	return result;
 }
 
 template<typename T>
 struct enable_small_shared_from_this
 {
-	small_shared_ptr_counter<T> * enable_small_shared_from_this_counter;
+	small_shared_ptr_counter_base<T> * enable_small_shared_from_this_counter;
 
 	small_shared_ptr<T> small_shared_from_this()
 	{

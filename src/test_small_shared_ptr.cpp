@@ -402,6 +402,17 @@ bool test_shared_from_this()
 		ASSERT_ACT(a->x, ==, 777, return false);
 		ASSERT_ACT(b->x, ==, 777, return false);
 	}
+	{
+		utttil::small_shared_ptr<TestSFT> a(utttil::make_small_shared<TestSFT>(555));
+		ASSERT_ACT(count, ==, 1, return false);
+		ASSERT_ACT(a->x, ==, 555, return false);
+
+		auto b(a->shared());
+		ASSERT_ACT(count, ==, 1, return false);
+		ASSERT_ACT(a.get(), ==, b.get(), return false);
+		ASSERT_ACT(a->x, ==, 555, return false);
+		ASSERT_ACT(b->x, ==, 555, return false);
+	}
 	ASSERT_ACT(count, ==, 0, return false);
 	return true;
 }
