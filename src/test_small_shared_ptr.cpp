@@ -16,6 +16,15 @@ struct Test
 	{
 		--count;
 	}
+	virtual int get_value() { return 1234; }
+};
+
+struct TestDerived : Test
+{
+	TestDerived(int a)
+		: Test(a)
+	{}
+	int get_value() override { return 4321; }
 };
 
 struct TestSFT : utttil::enable_small_shared_from_this<TestSFT>
@@ -425,6 +434,51 @@ bool test_size()
 	return true;
 }
 
+bool test_inheritance()
+{
+	utttil::small_shared_ptr<TestDerived> a(new TestDerived(888));
+	utttil::small_shared_ptr<Test> b = a;
+	ASSERT_ACT(b->get_value(), ==, 4321, return false);
+
+	return true;
+}
+
+bool test_cast_into_void()
+{
+	void * user_data;
+
+	ASSERT_ACT(count, ==, 0, return false);
+	{
+		auto a = utttil::make_small_shared<Test>(12345);
+		a.persist_in(user_data);
+	}
+	ASSERT_ACT(count, ==, 1, return false);
+	{
+		auto b = utttil::small_shared_ptr<Test>::copy_persisted(user_data);
+		ASSERT_ACT(b->x, ==, 12345, return false);
+	}
+	ASSERT_ACT(count, ==, 1, return false);
+	{
+		utttil::small_shared_ptr<Test>::destroy_persisted(user_data);
+	}
+	ASSERT_ACT(count, ==, 0, return false);
+	{
+		utttil::small_shared_ptr<Test>::destroy_persisted(user_data);
+	}
+	ASSERT_ACT(count, ==, 0, return false);
+	{
+		auto b = utttil::small_shared_ptr<Test>::copy_persisted(user_data);
+		ASSERT_ACT(!!b, ==, false, return false);
+	}
+
+	// make sure having a dead copy doesn't crash
+	{
+		auto a = utttil::make_small_shared<Test>(12345);
+		a.persist_in(user_data);
+	}
+	return true;
+}
+
 int main()
 {
 	bool success = true
@@ -435,6 +489,8 @@ int main()
 		&& test_weak_ptr()
 		&& test_shared_from_this()
 		&& test_size()
+		&& test_inheritance()
+		&& test_cast_into_void()
 		;
 
 	return success ? 0 : 1;

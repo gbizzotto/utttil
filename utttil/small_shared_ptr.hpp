@@ -6,6 +6,7 @@
 
 #include <cstddef> // size_t
 #include <utility> // swap
+#include <type_traits>
 
 namespace utttil {
 
@@ -72,8 +73,8 @@ struct small_shared_ptr
 	small_shared_ptr(std::nullptr_t) noexcept
 		: counter(nullptr)
 	{}
-	template<typename U=T, typename...Args, std::enable_if_t<!std::is_base_of<enable_small_shared_from_this<U>,U>::value, bool> = true>
-	small_shared_ptr(T * && t)
+	template<typename U, std::enable_if_t<!std::is_base_of<enable_small_shared_from_this<T>,U>::value, bool> = true>
+	small_shared_ptr(U * && t)
 	{
 		if (t) {
 			counter = new small_shared_ptr_counter<T>(t);
@@ -81,45 +82,70 @@ struct small_shared_ptr
 		} else
 			counter = nullptr;
 	}
-	template<typename U=T, typename...Args, std::enable_if_t<std::is_base_of<enable_small_shared_from_this<U>,U>::value, bool> = true>
-	small_shared_ptr(enable_small_shared_from_this<T> * && t)
+	template<typename U, std::enable_if_t<std::is_base_of<enable_small_shared_from_this<T>,U>::value, bool> = true>
+	small_shared_ptr(enable_small_shared_from_this<U> * && t)
 	{
 		if (t)
 		{
 			counter = new small_shared_ptr_counter<T>((T*)t);
 			counter->get()->enable_small_shared_from_this_counter = counter;
 			t = nullptr;
-		} else
+		}
+		else
 			counter = nullptr;
 	}
-	small_shared_ptr(small_shared_ptr & other)
+	small_shared_ptr(const small_shared_ptr<T> & other)
 	{
-		if (this == &other)
+		if (this == &other) {
+			counter = nullptr;
 			return;
+		}
 		counter = other.counter;
 		increase();
 	}
-	small_shared_ptr(small_shared_ptr && other)
+	template<typename U, std::enable_if_t<std::is_base_of<T,U>::value, bool> = true>
+	small_shared_ptr(const small_shared_ptr<U> & other)
 	{
-		if (this == &other)
+		if ((ptrdiff_t)this == (ptrdiff_t)&other) {
 			counter = nullptr;
-		else {
-			counter = other.counter;
-			other.counter = nullptr;
+			return;
+		}
+		counter = (decltype(counter))other.counter;
+		increase();
+	}
+	template<typename U, std::enable_if_t<std::is_base_of<T,U>::value, bool> = true>
+	small_shared_ptr(small_shared_ptr<U> && other)
+	{
+		counter = nullptr;
+		if ((ptrdiff_t)this != (ptrdiff_t)&other)
+		{
+			decltype(other.counter) tmp = (decltype(other.counter))counter;
+			counter = (decltype(counter))other.counter;
+			other.counter = tmp;
 		}
 	}
-	small_shared_ptr & operator=(const small_shared_ptr & other)
+	small_shared_ptr & operator=(const small_shared_ptr<T> & other)
 	{
-		if (this == &other)
+		if ((ptrdiff_t)this == (ptrdiff_t)&other)
 			return *this;
 		decrease();
-		counter = other.counter;
+		counter = (decltype(counter))other.counter;
+		increase();
+		return *this;
+	}
+	template<typename U, std::enable_if_t<std::is_base_of<T,U>::value, bool> = true>
+	small_shared_ptr & operator=(const small_shared_ptr<U> & other)
+	{
+		if ((ptrdiff_t)this == (ptrdiff_t)&other)
+			return *this;
+		decrease();
+		counter = (decltype(counter))other.counter;
 		increase();
 		return *this;
 	}
 	small_shared_ptr & operator=(small_shared_ptr && other)
 	{
-		if (this == &other)
+		if ((ptrdiff_t)this == (ptrdiff_t)&other)
 			return *this;
 		decrease();
 		counter = other.counter;
@@ -180,6 +206,32 @@ struct small_shared_ptr
 	{
 		return counter != nullptr && counter->count != 0;
 	}
+
+	template<typename U>
+	void persist_in(U & u)
+	{
+		using ThisType = small_shared_ptr<T>;
+		new (&u) ThisType (*this);
+	}
+	template<typename U>
+	static small_shared_ptr<T> copy_persisted(U & u)
+	{
+		if (u == 0)
+			return nullptr;
+		using ThisType = small_shared_ptr<T>;
+		ThisType & b = *reinterpret_cast<typename std::add_pointer<ThisType>::type>(&u);
+		return b;
+	}
+	template<typename U>
+	static void destroy_persisted(U & u)
+	{
+		if (u == 0)
+			return;
+		using ThisType = small_shared_ptr<T>;
+		ThisType & b = *reinterpret_cast<typename std::add_pointer<ThisType>::type>(&u);
+		b.~ThisType();
+		u = 0;
+	}
 };
 
 template<typename T>
@@ -202,9 +254,8 @@ struct small_weak_ptr
 	}
 	small_weak_ptr(small_weak_ptr && other)
 	{
-		if (this == &other)
-			counter = nullptr;
-		else
+		counter = nullptr;
+		if (this != &other)
 			std::swap(counter, other.counter);
 	}
 	small_weak_ptr(small_shared_ptr<T> & shared)
