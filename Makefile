@@ -116,7 +116,7 @@ GREEN=\033[1;32m
 YELLOW=\033[1;33m
 NC=\033[0m # No Color
 
-do_test_%:
+do_%:
 	@if [ -f "$(BINDIR_BASE)/$*" ]; then \
 		printf '\t%-64s' $*; \
 		output=`$(TIMEOUT) 60s $(BINDIR_BASE)/$* 2>&1 >/dev/null`; \
@@ -130,7 +130,7 @@ do_test_%:
 		printf '\t%-64s$(YELLOW)[Not found]$(NC)\n' $(bin); \
 	fi; \
 	
-test: $(foreach bin,$(if $(TARGET),$(TARGET),$(all_tests)), do_test_$(bin))
+test: $(foreach bin,$(if $(TARGET),$(TARGET),$(all_tests)), do_$(bin))
 
 $(TESTDIR): $(all_tests)
 	@#pass
