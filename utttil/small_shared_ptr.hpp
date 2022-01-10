@@ -110,7 +110,7 @@ struct small_shared_ptr
 			counter = nullptr;
 			return;
 		}
-		counter = (decltype(counter))other.counter;
+		counter = reinterpret_cast<decltype(counter)>(other.counter);
 		increase();
 	}
 	template<typename U, std::enable_if_t<std::is_base_of<T,U>::value, bool> = true>
@@ -129,7 +129,7 @@ struct small_shared_ptr
 		if ((ptrdiff_t)this == (ptrdiff_t)&other)
 			return *this;
 		decrease();
-		counter = (decltype(counter))other.counter;
+		counter = other.counter;
 		increase();
 		return *this;
 	}
@@ -139,7 +139,7 @@ struct small_shared_ptr
 		if ((ptrdiff_t)this == (ptrdiff_t)&other)
 			return *this;
 		decrease();
-		counter = (decltype(counter))other.counter;
+		counter = other.counter;
 		increase();
 		return *this;
 	}
@@ -223,7 +223,7 @@ struct small_shared_ptr
 		return b;
 	}
 	template<typename U>
-	static void destroy_persisted(U & u)
+	static void destruct_persisted(U & u)
 	{
 		if (u == 0)
 			return;
@@ -332,22 +332,8 @@ struct small_weak_ptr
 	bool expired() const { return use_count == 0; }
 };
 
-template<typename T, typename...Args, std::enable_if_t<!std::is_base_of<enable_small_shared_from_this<T>,T>::value, bool> = true>
-small_shared_ptr<T> make_small_shared(Args...args)
-{
-	small_shared_ptr<T> result;
-	result.counter = new small_shared_ptr_counter_in_place<T>(args...);
-	return result;
-}
 
-template<typename T, typename...Args, std::enable_if_t<std::is_base_of<enable_small_shared_from_this<T>,T>::value, bool> = true>
-small_shared_ptr<T> make_small_shared(Args...args)
-{
-	small_shared_ptr<T> result;
-	result.counter = new small_shared_ptr_counter_in_place<T>(args...);
-	result.counter->get()->enable_small_shared_from_this_counter = result.counter;
-	return result;
-}
+
 
 template<typename T>
 struct enable_small_shared_from_this
@@ -362,5 +348,45 @@ struct enable_small_shared_from_this
 		return result;
 	}
 };
+
+// First helper
+template<typename T>
+struct _is_enable_small_shared_from_this: std::is_base_of<enable_small_shared_from_this<T>, T>
+{};
+
+// Second helper: uses conversion rules
+// (could've been written with is_convertible, but this is clearer IMO)
+template<typename T>
+constexpr bool _is_any_base_enable_small_shared_from_this(enable_small_shared_from_this<T>*)
+{ return true; }
+template<typename T=void>
+constexpr bool _is_any_base_enable_small_shared_from_this(void*)
+{ return false; }
+
+// Final trait
+template<typename T>
+struct is_enable_small_shared_from_this {
+    static constexpr bool value = _is_any_base_enable_small_shared_from_this((T*)0);
+};
+
+
+template<typename T, typename...Args, std::enable_if_t<!is_enable_small_shared_from_this<T>::value, bool> = true>
+small_shared_ptr<T> make_small_shared(Args...args)
+{
+	small_shared_ptr<T> result;
+	result.counter = new small_shared_ptr_counter_in_place<T>(args...);
+	return result;
+}
+
+template<typename T, typename...Args, std::enable_if_t<is_enable_small_shared_from_this<T>::value, bool> = true >
+small_shared_ptr<T> make_small_shared(Args...args)
+{
+	small_shared_ptr<T> result;
+	result.counter = new small_shared_ptr_counter_in_place<T>(args...);
+	result.counter->get()->enable_small_shared_from_this_counter = (decltype(result.counter->get()->enable_small_shared_from_this_counter)) result.counter;
+	return result;
+}
+
+
 
 } // namespace

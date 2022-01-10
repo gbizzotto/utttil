@@ -45,6 +45,15 @@ struct TestSFT : utttil::enable_small_shared_from_this<TestSFT>
 	}
 };
 
+struct TestSFTDerived : TestSFT
+{
+	int y;
+	TestSFTDerived(int y_, int x_)
+		: TestSFT(x_)
+		, y(y_)
+	{}
+};
+
 bool test_shared_ptr()
 {
 	utttil::small_shared_ptr<int> a(new int(123));
@@ -410,6 +419,14 @@ bool test_shared_from_this()
 		ASSERT_ACT(a.get(), ==, b.get(), return false);
 		ASSERT_ACT(a->x, ==, 777, return false);
 		ASSERT_ACT(b->x, ==, 777, return false);
+
+		auto c = b->shared();
+		ASSERT_ACT(count, ==, 1, return false);
+		ASSERT_ACT(a.get(), ==, b.get(), return false);
+		ASSERT_ACT(c.get(), ==, b.get(), return false);
+		ASSERT_ACT(a->x, ==, 777, return false);
+		ASSERT_ACT(b->x, ==, 777, return false);
+		ASSERT_ACT(c->x, ==, 777, return false);
 	}
 	{
 		utttil::small_shared_ptr<TestSFT> a(utttil::make_small_shared<TestSFT>(555));
@@ -436,9 +453,36 @@ bool test_size()
 
 bool test_inheritance()
 {
-	utttil::small_shared_ptr<TestDerived> a(new TestDerived(888));
-	utttil::small_shared_ptr<Test> b = a;
-	ASSERT_ACT(b->get_value(), ==, 4321, return false);
+	{
+		utttil::small_shared_ptr<TestDerived> a(new TestDerived(888));
+		utttil::small_shared_ptr<Test> b = a;
+		ASSERT_ACT(b->get_value(), ==, 4321, return false);
+	}
+
+	{
+		utttil::small_shared_ptr<TestSFTDerived> d = utttil::make_small_shared<TestSFTDerived>(777, 432);
+		utttil::small_shared_ptr<TestSFT> a = d;
+		ASSERT_ACT(count, ==, 1, return false);
+		ASSERT_ACT(d->y, ==, 777, return false);
+		ASSERT_ACT(d->x, ==, 432, return false);
+		ASSERT_ACT(a->x, ==, 432, return false);
+
+		ASSERT_ACT(a.get(), ==, a->shared().get(), return false);
+
+		auto b = a->shared();
+		ASSERT_ACT(count, ==, 1, return false);
+		ASSERT_ACT(a.get(), ==, b.get(), return false);
+		ASSERT_ACT(a->x, ==, 432, return false);
+		ASSERT_ACT(b->x, ==, 432, return false);
+
+		auto c = b->shared();
+		ASSERT_ACT(count, ==, 1, return false);
+		ASSERT_ACT(a.get(), ==, b.get(), return false);
+		ASSERT_ACT(c.get(), ==, b.get(), return false);
+		ASSERT_ACT(a->x, ==, 432, return false);
+		ASSERT_ACT(b->x, ==, 432, return false);
+		ASSERT_ACT(c->x, ==, 432, return false);
+	}
 
 	return true;
 }
@@ -459,11 +503,11 @@ bool test_cast_into_void()
 	}
 	ASSERT_ACT(count, ==, 1, return false);
 	{
-		utttil::small_shared_ptr<Test>::destroy_persisted(user_data);
+		utttil::small_shared_ptr<Test>::destruct_persisted(user_data);
 	}
 	ASSERT_ACT(count, ==, 0, return false);
 	{
-		utttil::small_shared_ptr<Test>::destroy_persisted(user_data);
+		utttil::small_shared_ptr<Test>::destruct_persisted(user_data);
 	}
 	ASSERT_ACT(count, ==, 0, return false);
 	{
