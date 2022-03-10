@@ -21,11 +21,11 @@ CFLAGS_debug = -g
 CFLAGS_release = -g -O3 -fno-omit-frame-pointer
 CFLAGS_final = -O3
 EXTRA_CFLAGS = 
-CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
+CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I$(DEPDIR)/liburing/src/include -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
 
 LD=$(CXX)
-LDFLAGS = 
-LDLIBS = -pthread -lssl -lcrypto
+LDFLAGS = -L $(DEPDIR)/liburing/src/
+LDLIBS = -pthread -lssl -lcrypto -luring
 #-L$(DEPDIR)/abseil-cpp/build/absl/container/ -L$(DEPDIR)/abseil-cpp/build/absl/synchronization/ -L$(DEPDIR)/abseil-cpp/build/absl/time
 #-labsl_hashtablez_sampler -labsl_synchronization -labsl_time
 
@@ -116,7 +116,7 @@ GREEN=\033[1;32m
 YELLOW=\033[1;33m
 NC=\033[0m # No Color
 
-do_test_%:
+do_%:
 	@if [ -f "$(BINDIR_BASE)/$*" ]; then \
 		printf '\t%-64s' $*; \
 		output=`$(TIMEOUT) 60s $(BINDIR_BASE)/$* 2>&1 >/dev/null`; \
@@ -130,7 +130,7 @@ do_test_%:
 		printf '\t%-64s$(YELLOW)[Not found]$(NC)\n' $(bin); \
 	fi; \
 	
-test: $(foreach bin,$(if $(TARGET),$(TARGET),$(all_tests)), do_test_$(bin))
+test: $(foreach bin,$(if $(TARGET),$(TARGET),$(all_tests)), do_$(bin))
 
 $(TESTDIR): $(all_tests)
 	@#pass
