@@ -24,7 +24,7 @@ namespace std {
 namespace utttil {
 
 template<typename T>
-constexpr size_t useful_exponent(T t)
+constexpr size_t useful_exponent(T)
 {
 	T m = max<T>();
 

@@ -128,7 +128,7 @@ to_binary<Device> & operator<<(to_binary<Device> & serializer, const T & t)
 
 // support for std::endl and other modifiers
 template<typename Device>
-to_binary<Device> & operator<<(to_binary<Device> & serializer, std::ostream& (*f)(std::ostream&))
+to_binary<Device> & operator<<(to_binary<Device> & serializer, std::ostream& (*)(std::ostream&))
 {
 	serializer.write.flush();
 	return serializer;

@@ -16,8 +16,6 @@ bool test(std::string url)
 	std::string recv_by_client;
 	std::string recv_by_server;
 
-	std::atomic_bool done = false;
-
 	utttil::iou::context ctx;
 	ctx.run();
 	
