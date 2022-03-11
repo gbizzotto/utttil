@@ -19,8 +19,8 @@ DOCKERIMG_BASE_NAME = ttt/build-
 
 #-fsanitize=address,leak
 CFLAGS_debug = -g3 -Og  -Wall -Wextra -fsanitize=address,leak
-CFLAGS_perf = -O3
-CFLAGS_release = -g -O3 -fno-omit-frame-pointer
+CFLAGS_perf = -O3 -DNDEBUG
+CFLAGS_release = -g -O3 -fno-omit-frame-pointer -DNDEBUG
 EXTRA_CFLAGS = 
 CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I$(DEPDIR)/liburing/src/include -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
 
@@ -155,13 +155,18 @@ endif
 gen:
 	#pass
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+-include $(OBJDIR)/headers.d
+
+headers: $(SRCDIR)/headers.hpp.gch
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp $(SRCDIR)/headers.hpp.gch 
 	@mkdir -p $(@D)
 	@echo $<
 	@$(CXX) $(CFLAGS) -c -MMD -o $@ $<
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.cc
+$(OBJDIR)/%.o: $(SRCDIR)/%.cc $(SRCDIR)/headers.hpp.gch
 	@mkdir -p $(@D)
+	@echo $<
 	@$(CC) $(CFLAGS) -c -MMD -o $@ $<
 
 %: $(BINDIR)/%
@@ -170,9 +175,11 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cc
 
 $(SRCDIR)/headers.hpp.gch: $(SRCDIR)/headers.hpp
 	@echo Precompiling headers
+	@mkdir -p $(OBJDIR)
+	@$(CXX) -MMD -MF $(OBJDIR)/headers.d -MT $(SRCDIR)/headers.hpp.gch $(CFLAGS) $<
 	@$(CXX) $(CFLAGS) $<
 
-$(BINDIR)/%: $(SRCDIR)/headers.hpp.gch $(OBJDIR)/%.o
+$(BINDIR)/%: $(OBJDIR)/%.o
 	$(eval rule := $(shell cat $(OBJDIR)/$*.d))
 	$(eval hdrs := $(filter %.hpp,$(rule)))
 	$(eval old_objs := $(filter %.o,$(rule)))
