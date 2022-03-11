@@ -219,7 +219,7 @@ bool test_thread_safety_fuzz()
 				} catch (std::exception &) {
 					std::cout << "exception in empty()" << std::endl;
 				}
-				int r;
+				int r = -1;
 				try {
 					r = rb.front();
 				} catch (std::exception &) {

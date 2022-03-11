@@ -18,7 +18,7 @@ TESTDIR := tests
 DOCKERIMG_BASE_NAME = ttt/build-
 
 #-fsanitize=address,leak
-CFLAGS_debug = -g3 -O0  -Wall -Wextra -fsanitize=address,leak
+CFLAGS_debug = -g3 -Og  -Wall -Wextra -fsanitize=address,leak
 CFLAGS_perf = -O3
 CFLAGS_release = -g -O3 -fno-omit-frame-pointer
 EXTRA_CFLAGS = 

@@ -43,7 +43,10 @@ struct fixed_stringz
 
 	fixed_stringz & operator=(const char * str)
 	{
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wstringop-truncation"
 		strncpy(data_, str, Capacity);
+		#pragma GCC diagnostic pop
 		return *this;
 	}
 	fixed_stringz & operator=(const std::string & str)
