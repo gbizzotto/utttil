@@ -12,6 +12,7 @@ volatile char go_on;
 
 bool test_add_int32()
 {
+	bool success = true;
 	using df = utttil::dfloat<int, 4>;
 	for (int i=0 ; i<10 ; i++)
 	{
@@ -21,12 +22,11 @@ bool test_add_int32()
 		bool loss = c.add_loss(b);
 		if ( ! loss)
 		{
-			bool success = true;
 			ASSERT_MSG_ACT(c.sub_loss(b), ==, false, "Overflow error", success = false);
 			ASSERT_MSG_ACT(a, ==, c, std::string("add/sub error, i=").append(std::to_string(i)), success = false);
 		}
 	}
-	return true;
+	return success;
 }
 
 bool test_comp()
@@ -104,7 +104,7 @@ int main()
 {
 	bool success = true;
 
-	ASSERT_ACT(lot_count_t(1234)*round_lot_t(4321), ==, quantity_t(5332114), success = false);
+	ASSERT_ACT(lot_count_t(1234u)*round_lot_t(4321u), ==, quantity_t(5332114u), success = false);
 	ASSERT_ACT(quantity_t(10,1), ==, quantity_t(1,0), success = false);
 	ASSERT_ACT(volume_t(123'456'789'000'000'000,10), ==, quantity_t(123'456'789,1), success = false);
 

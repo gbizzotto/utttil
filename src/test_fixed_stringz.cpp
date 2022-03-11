@@ -18,11 +18,11 @@ bool test_integrity()
 	ASSERT_ACT(fsz1, ==, fsz2, return false);
 	ASSERT_ACT(fsz1, !=, fsz3, return false);
 	ASSERT_ACT(fsz3, ==, fsz3, return false);
-	ASSERT_ACT(fsz1.size(), ==, 3, return false);
-	ASSERT_ACT(fsz3.size(), ==, 6, return false);
+	ASSERT_ACT(fsz1.size(), ==, 3ull, return false);
+	ASSERT_ACT(fsz3.size(), ==, 6ull, return false);
 	utttil::fixed_stringz<1> fsz4("abcdef");
 	utttil::fixed_stringz<1> fsz5;
-	ASSERT_ACT(fsz5.size(), ==, 0, return false);
+	ASSERT_ACT(fsz5.size(), ==, 0ull, return false);
 	ASSERT_ACT(fsz4, !=, fsz5, return false);
 	auto fsz1_2 = fsz1;
 	ASSERT_ACT(fsz1, ==, fsz1_2, return false);

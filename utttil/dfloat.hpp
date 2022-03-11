@@ -85,6 +85,7 @@ struct dfloat
 		, exponent(0)
 	{
 		assert(t <= max_mantissa);
+		assert(t >= min_mantissa);
 	}
 	dfloat(const dfloat & other) = default;
 	// 	: mantissa(other.mantissa)

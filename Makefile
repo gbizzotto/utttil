@@ -17,15 +17,16 @@ DEPDIR := ..
 TESTDIR := tests
 DOCKERIMG_BASE_NAME = ttt/build-
 
-CFLAGS_debug = -g
+#-fsanitize=address,leak
+CFLAGS_debug = -g3 -O0  -Wall -Wextra -fsanitize=address,leak
+CFLAGS_perf = -O3
 CFLAGS_release = -g -O3 -fno-omit-frame-pointer
-CFLAGS_final = -O3
 EXTRA_CFLAGS = 
 CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I$(DEPDIR)/liburing/src/include -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
 
 LD=$(CXX)
 LDFLAGS = -L $(DEPDIR)/liburing/src/
-LDLIBS = -pthread -lssl -lcrypto -luring
+LDLIBS = -pthread -lssl -lcrypto -luring -lasan
 #-L$(DEPDIR)/abseil-cpp/build/absl/container/ -L$(DEPDIR)/abseil-cpp/build/absl/synchronization/ -L$(DEPDIR)/abseil-cpp/build/absl/time
 #-labsl_hashtablez_sampler -labsl_synchronization -labsl_time
 

@@ -27,11 +27,11 @@ size_t serialize(T t, char * buf)
 		*buf = t & 0x7F; // 7 lower bits
 		buf++;
 		t >>= 7;
-	}while(t != 0 && t != -1);
+	}while(t != 0 && t != (T)-1);
 
 	b[0] |= 0x80;
 
-	if (t == -1 && ((*(buf-1)) & 0x40) == 0)
+	if (t == (T)-1 && ((*(buf-1)) & 0x40) == 0)
 	{
 		// t negative but highest bit kept is zero
 		// add an all-1 byte
@@ -53,10 +53,10 @@ size_t serialize(T t, char * buf)
 template<typename T, typename std::enable_if<std::is_integral<T>{},int>::type = 0>
 void deserialize(T & t, const char * v)
 {
-	T result = -1 * (((*v) & 0x40)==0x40);
+	t = (T)-1 * (((*v) & 0x40)==0x40);
 	do
 	{
-		result = (result<<7) | ((*v) & 0x7F);
+		t = (t<<7) | ((*v) & 0x7F);
 	}while((*(v++) & 0x80) == 0);
 }
 template<typename T
@@ -71,7 +71,7 @@ template<typename T
 T deserialize(F & read)
 {
 	char v = read();
-	T result = -1 * ((v & 0x40)==0x40);
+	T result = (T)-1 * ((v & 0x40)==0x40);
 	while((v & 0x80) == 0)
 	{
 		result = (result<<7) | (v & 0x7F);

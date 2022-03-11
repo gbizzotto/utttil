@@ -72,7 +72,7 @@ struct fixed_stringz
 	template<typename Deserializer>
 	void deserialize(Deserializer && s)
 	{
-		for (size_t i=0 ; i<Capacity != 0 ; i++) {
+		for (size_t i=0 ; i<Capacity ; i++) {
 			data_[i] = s.read();
 			if (data_[i] == 0)
 				break;
@@ -89,7 +89,7 @@ struct fixed_stringz
 	template<typename Rand>
 	void randomize(Rand & rand)
 	{
-		for (size_t i=0 ; i<Capacity != 0 ; i++)
+		for (size_t i=0 ; i<Capacity ; i++)
 			data_[i] = 32 + (rand()%(128-32));
 	}
 };

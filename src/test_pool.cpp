@@ -11,14 +11,14 @@ bool test_basics()
 {
 	utttil::fixed_pool<int> pool(1024);
 
-	ASSERT_ACT(pool.size(), ==, 0, return false);
+	ASSERT_ACT(pool.size(), ==, 0ull, return false);
 	ASSERT_ACT(pool.empty(), ==, true, return false);
 	ASSERT_ACT(pool.full(), ==, false, return false);
 
 	int * a = pool.alloc();
 
 	ASSERT_ACT(a, !=, nullptr, return false);
-	ASSERT_ACT(pool.size(), ==, 1, return false);
+	ASSERT_ACT(pool.size(), ==, 1ull, return false);
 	ASSERT_ACT(pool.empty(), ==, false, return false);
 	ASSERT_ACT(pool.full(), ==, false, return false);
 
@@ -26,7 +26,7 @@ bool test_basics()
 
 	pool.free(a);
 
-	ASSERT_ACT(pool.size(), ==, 0, return false);
+	ASSERT_ACT(pool.size(), ==, 0ull, return false);
 	ASSERT_ACT(pool.empty(), ==, true, return false);
 	ASSERT_ACT(pool.full(), ==, false, return false);
 
@@ -45,7 +45,7 @@ bool test_full()
 		*ptrs[i] = 1000000 + i;
 	}
 
-	ASSERT_ACT(pool.size(), ==, 1024, return false);
+	ASSERT_ACT(pool.size(), ==, 1024ull, return false);
 	ASSERT_ACT(pool.empty(), ==, false, return false);
 	ASSERT_ACT(pool.full(), ==, true,  return false);
 
@@ -55,7 +55,7 @@ bool test_full()
 		pool.free(ptrs[i]);
 	}
 
-	ASSERT_ACT(pool.size(), ==, 0, return false);
+	ASSERT_ACT(pool.size(), ==, 0ull, return false);
 	ASSERT_ACT(pool.empty(), ==, true, return false);
 	ASSERT_ACT(pool.full(), ==, false,  return false);
 
@@ -76,7 +76,7 @@ bool test_holes()
 		values.push_back(1000000 + i);
 	}
 
-	ASSERT_ACT(pool.size(), ==, 1024, return false);
+	ASSERT_ACT(pool.size(), ==, 1024ull, return false);
 	ASSERT_ACT(pool.empty(), ==, false, return false);
 	ASSERT_ACT(pool.full(), ==, true,  return false);
 	for (size_t i=0 ; i<ptrs.size() ; i++)
@@ -91,7 +91,7 @@ bool test_holes()
 		pool.free(ptr);
 	}
 
-	ASSERT_ACT(pool.size(), ==, 1024-128, return false);
+	ASSERT_ACT(pool.size(), ==, 1024ull-128ull, return false);
 	ASSERT_ACT(pool.empty(), ==, false, return false);
 	ASSERT_ACT(pool.full(), ==, false,  return false);
 	for (size_t i=0 ; i<ptrs.size() ; i++)
@@ -104,7 +104,7 @@ bool test_holes()
 		values.push_back(1000000 + i);
 	}
 
-	ASSERT_ACT(pool.size(), ==, 1024, return false);
+	ASSERT_ACT(pool.size(), ==, 1024ull, return false);
 	ASSERT_ACT(pool.empty(), ==, false, return false);
 	ASSERT_ACT(pool.full(), ==, true,  return false);
 	for (size_t i=0 ; i<ptrs.size() ; i++)

@@ -42,7 +42,10 @@ bool test_int()
 {
 	srand(time(0));
 
-	for (int i=0 ; ; i++)
+	size_t i = 0;
+	for ( auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1)
+		; std::chrono::steady_clock::now() < deadline
+		; )
 	{
 		if (!( test<char>()
 			&& test<short>()
@@ -63,12 +66,15 @@ bool test_int()
 			return false;
 		}
 		if (i%1000 == 0)
-			std::cout << i << "\r";
+			std::cout << i++ << "\r";
 	}
 	return true;
 }
 
 int main()
 {
-	return test_int();
+	bool success = true
+		&& test_int()
+		;
+	return success ? 0 : 1;
 }

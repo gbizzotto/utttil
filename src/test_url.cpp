@@ -328,7 +328,7 @@ bool test_args()
 		for (const char * u : urls)
 		{
 			utttil::url url(u);
-			ASSERT_MSG_ACT(url.args.size(), ==, 0, u, return false); 
+			ASSERT_MSG_ACT(url.args.size(), ==, 0ull, u, return false); 
 		}
 	}
 	{
@@ -347,7 +347,7 @@ bool test_args()
 		for (const char * u : urls)
 		{
 			utttil::url url(u);
-			ASSERT_MSG_ACT(url.args.size(), ==, 2, u, return false); 
+			ASSERT_MSG_ACT(url.args.size(), ==, 2ull, u, return false); 
 			ASSERT_MSG_ACT(url.args["a"], ==, "1", u, return false); 
 			ASSERT_MSG_ACT(url.args["b"], ==, "2", u, return false); 
 		}

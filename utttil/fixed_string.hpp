@@ -18,7 +18,7 @@ struct fixed_string
 	char data_[Capacity];
 
 	fixed_string()
-		: size_(0)
+		: size_(0ull)
 	{}
 	fixed_string(const char * str)
 	{
@@ -27,8 +27,8 @@ struct fixed_string
 
 	const char * data() const { return data_; }
 	      char * data()       { return data_; }
-	const size_t size() const { return size_; }
-	      size_t size()       { return size_; }
+	size_t size() const { return size_; }
+	size_t size()       { return size_; }
 	void resize(size_t s) { size_ = s; }
 
 	fixed_string & operator=(const char * str)

@@ -143,9 +143,9 @@ struct peer
 	           , size_t output_ring_buffer_size = default_output_ring_buffer_size
 	           , size_t input_ring_buffer_size = default_input_ring_buffer_size
 	           , size_t input_chunk_size_ = min_input_chunk_size )
-		: ring(ring_)
+		: fd(fd_)
+		, ring(ring_)
 		, accepted(accepted_ring_buffer_size_)
-		, fd(fd_)
 		, outbox(output_ring_buffer_size)
 		, inbox(input_ring_buffer_size)
 		, input_chunk_size(input_chunk_size_)
@@ -220,7 +220,7 @@ struct peer
 	{
 		//std::cout << "sent " << count << std::endl;
 		//std::cout << "outbox_size: " << outbox_size() << std::endl;
-		while (count >= 0 && outbox.size() > 0 && count >= outbox.front().size())
+		while (outbox.size() > 0 && count >= outbox.front().size())
 		{
 			count -= outbox.front().size();
 			outbox.pop_front();
@@ -323,8 +323,6 @@ struct context
 	void loop()
 	{
 		io_uring_cqe *cqe;
-		sockaddr_in client_addr;
-		socklen_t client_addr_len = sizeof(client_addr);
 
 		__kernel_timespec timeout;
 		timeout.tv_sec = 0;

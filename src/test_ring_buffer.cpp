@@ -8,35 +8,35 @@
 
 bool test_back()
 {
-	utttil::ring_buffer<size_t> rb(16);
+	utttil::ring_buffer<int> rb(16);
 
-	ASSERT_ACT(rb.capacity(), ==, 16, return false);
-	ASSERT_ACT(rb.size()    , ==,  0, return false);
+	ASSERT_ACT(rb.capacity(), ==, 16ull, return false);
+	ASSERT_ACT(rb.size()    , ==,  0ull, return false);
 	ASSERT_ACT(rb.empty(), ==, true, return false);
 	ASSERT_ACT(rb.full(), ==, false, return false);
 
 	// push_back
-	for (int i=0 ; i<rb.capacity() ; i++)
+	for (size_t i=0 ; i<rb.capacity() ; i++)
 	{
 		rb.push_back(i);
 		ASSERT_MSG_ACT(rb.front   (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.back    (), ==, i  , std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.size    (), ==, i+1, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.back    (), ==, (int)i  , std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.size    (), ==, i+1ull, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
 	}
 	ASSERT_ACT(rb.full(), ==, true, return false);
 	ASSERT_ACT(rb.empty(), ==, false, return false);
 
 	// pop_back
-	for (int i=rb.capacity() ; i>0 ; i--)
+	for (size_t i=rb.capacity() ; i>0 ; i--)
 	{
 		ASSERT_MSG_ACT(rb.front   (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.back    (), ==, i-1, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.back    (), ==, (int)i-1, std::to_string(i), return false);
 		ASSERT_MSG_ACT(rb.size    (), ==, i  , std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
 		rb.pop_back();
 	}
-	ASSERT_ACT(rb.size(), ==, 0, return false);
+	ASSERT_ACT(rb.size(), ==, 0ull, return false);
 	ASSERT_ACT(rb.full(), ==, false, return false);
 	ASSERT_ACT(rb.empty(), ==, true, return false);
 
@@ -45,32 +45,32 @@ bool test_back()
 
 bool test_front()
 {
-	utttil::ring_buffer<size_t> rb(16);
+	utttil::ring_buffer<int> rb(16);
 
-	ASSERT_ACT(rb.capacity(), ==, 16, return false);
-	ASSERT_ACT(rb.size()    , ==,  0, return false);
+	ASSERT_ACT(rb.capacity(), ==, 16ull, return false);
+	ASSERT_ACT(rb.size()    , ==,  0ull, return false);
 
 	// push_back
-	for (int i=0 ; i<rb.capacity() ; i++)
+	for (size_t i=0 ; i<rb.capacity() ; i++)
 	{
 		rb.push_front(i);
 		ASSERT_MSG_ACT(rb.back    (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.front   (), ==, i  , std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.front   (), ==, (int)i  , std::to_string(i), return false);
 		ASSERT_MSG_ACT(rb.size    (), ==, i+1, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
 	}
 		ASSERT_ACT(rb.back(), ==, 0, return false);
 
 	// pop_back
-	for (int i=rb.capacity() ; i>0 ; i--)
+	for (size_t i=rb.capacity() ; i>0 ; i--)
 	{
 		ASSERT_MSG_ACT(rb.back    (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.front   (), ==, i-1, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.front   (), ==, (int)i-1, std::to_string(i), return false);
 		ASSERT_MSG_ACT(rb.size    (), ==, i  , std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16, std::to_string(i), return false);
+		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
 		rb.pop_front();
 	}
-	ASSERT_ACT(rb.size(), ==, 0, return false);
+	ASSERT_ACT(rb.size(), ==, 0ull, return false);
 	return true;
 }
 
@@ -110,7 +110,7 @@ bool test_object()
 {
 	utttil::ring_buffer<C> rb(23);
 
-	ASSERT_ACT(0, ==, C::counter, return false);
+	ASSERT_ACT(0ull, ==, C::counter, return false);
 
 	// back
 	rb.push_back(123);

@@ -80,7 +80,7 @@ struct NewOrder
 			s >> stop_pic_count;
 	}
 };
-inline std::ostream & operator<<(std::ostream & out, const  NewOrder & new_order)
+inline std::ostream & operator<<(std::ostream & out, const  NewOrder & )
 {
 	return out << "NewOrder";
 }
@@ -113,7 +113,7 @@ struct Msg
 	template<typename Serializer  > void   serialize(  Serializer && s) const { s << type << seq << account_id << req_id << new_order; }
 	template<typename Deserializer> void deserialize(Deserializer && s)       { s >> type >> seq >> account_id >> req_id >> new_order; }
 };
-inline std::ostream & operator<<(std::ostream & out, const  Msg & msg)
+inline std::ostream & operator<<(std::ostream & out, const  Msg & )
 {
 	return out << "Msg";
 }

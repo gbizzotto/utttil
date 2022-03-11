@@ -102,7 +102,10 @@ struct url_
 			+ (args.empty() ? "" : std::accumulate(args.begin(), args.end(), std::string("?"),
 				[](std::string & so_far, auto arg_pair)
 				{
-					if(so_far.size() > 1) so_far.append("&"); so_far.append(arg_pair.first).append("=").append(arg_pair.second); return so_far;
+					if(so_far.size() > 1)
+						so_far.append("&");
+					so_far.append(arg_pair.first).append("=").append(arg_pair.second);
+					return so_far;
 				}))
 			;
 	}
