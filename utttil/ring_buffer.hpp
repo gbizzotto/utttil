@@ -136,8 +136,30 @@ struct ring_buffer
 		front_ = f;
 		return result;
 	}
+	T & construct_back()
+	{
+		while (full())
+			_mm_pause();
+		new (&data[back_]) T;
+		T & result = data[back_];
+		return result;	
+	}
+	T & push_back()
+	{
+		while (full())
+			_mm_pause();
+		new (&data[back_]) T;
+		T & result = data[back_];
+		back_ = inc(back_);
+		return result;
+	}
 	T & push_back(T && t)
 	{
+		if (&t == &data[back_])
+		{
+			inc(back_);
+			return t;
+		}
 		while (full())
 			_mm_pause();
 		new (&data[back_]) T(std::forward<T>(t));
@@ -158,6 +180,11 @@ struct ring_buffer
 	}
 	T & push_back(const T & t)
 	{
+		if (&t == &data[back_])
+		{
+			inc(back_);
+			return data[back_];
+		}
 		while (full())
 			_mm_pause();
 		new (&data[back_]) T(t);
