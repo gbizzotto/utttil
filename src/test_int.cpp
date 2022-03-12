@@ -43,7 +43,7 @@ bool test_int()
 	srand(time(0));
 
 	size_t i = 0;
-	for ( auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1)
+	for ( auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3)
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
