@@ -132,7 +132,7 @@ bool test_fuzz()
 	size_t insert_count = 0;
 	size_t delete_count = 0;
 
-	for ( auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10)
+	for ( auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3)
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
