@@ -137,16 +137,16 @@ struct peer
 	io_uring & ring;
 
 	// acceptor
-	const static size_t default_accept_inbox_ring_buffer_size_ = 16;
+	const static size_t default_accept_inbox_size_ = 16;
 	sockaddr_in accept_client_addr;
 	socklen_t client_addr_len = sizeof(sockaddr_in);
 	utttil::ring_buffer<std::shared_ptr<peer>> accept_inbox;
 
 	// writer
-	const static size_t default_output_ring_buffer_size = 16;
+	const static size_t default_outbox_size = 16;
 	iovec write_iov[1];
 	utttil::ring_buffer<buffer> outbox;
-	const static size_t default_outbox_msg_size = 16;
+	const static size_t default_outbox_msg_size;
 	utttil::ring_buffer<MsgT> outbox_msg;
 
 	// reader
@@ -157,23 +157,23 @@ struct peer
 	utttil::ring_buffer<buffer> inbox;
 	size_t input_chunk_size;
 	std::vector<no_init<char>> recv_buffer;
-	const static size_t default_inbox_msg_size = 16;
+	const static size_t default_inbox_msg_size;
 	utttil::ring_buffer<MsgT> inbox_msg;
 
 	peer( size_t id_
 		, int fd_
 		, io_uring & ring_
-		, size_t accept_inbox_ring_buffer_size_= default_accept_inbox_ring_buffer_size_
-		, size_t output_ring_buffer_size = default_output_ring_buffer_size
-		, size_t outbox_msg_size = default_outbox_msg_size
-		, size_t input_ring_buffer_size = default_input_ring_buffer_size
-		, size_t input_chunk_size_ = min_input_chunk_size
-		, size_t inbox_msg_size = default_inbox_msg_size
+		, size_t accept_inbox_size_      = default_accept_inbox_size_
+		, size_t output_ring_buffer_size = default_outbox_size
+		, size_t outbox_msg_size         = default_outbox_msg_size
+		, size_t input_ring_buffer_size  = default_input_ring_buffer_size
+		, size_t input_chunk_size_       = min_input_chunk_size
+		, size_t inbox_msg_size          = default_inbox_msg_size
 		)
 		: id(id_)
 		, fd(fd_)
 		, ring(ring_)
-		, accept_inbox(accept_inbox_ring_buffer_size_)
+		, accept_inbox(accept_inbox_size_)
 		, outbox(output_ring_buffer_size)
 		, outbox_msg(outbox_msg_size)
 		, inbox(input_ring_buffer_size)
@@ -350,7 +350,7 @@ struct peer
 					break;
 				}
 				if (msg_size > deserializer.read.inbox_size_left()) {
-					std::cout << "iou inbox does not contain a full msg" << std::endl;
+					//std::cout << "iou inbox does not contain a full msg" << std::endl;
 					break;
 				}
 				MsgT msg;
@@ -370,7 +370,16 @@ template<>
 void peer<no_msg_t>::pack() {}
 template<>
 void peer<no_msg_t>::unpack() {}
-//template<>
-//const size_t peer<no_msg_t>::default_inbox_msg_size = 0;
+
+template<typename T>
+const size_t peer<T>::default_outbox_msg_size = 16;
+template<>
+inline const size_t peer<no_msg_t>::default_outbox_msg_size = 0;
+
+template<typename T>
+const size_t peer<T>::default_inbox_msg_size = 16;
+template<>
+inline const size_t peer<no_msg_t>::default_inbox_msg_size = 0;
+
 
 }} // namespace
