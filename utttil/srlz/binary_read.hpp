@@ -30,8 +30,8 @@ template<typename Device
 from_binary<Device> & operator>>(from_binary<Device> & deserializer, T & i)
 {
 	char *buf = (char*)&i;
-	for (size_t i=i ; i<sizeof(i) ; i++)
-		buf[i] = deserializer.read();
+	for (size_t j=0 ; j<sizeof(i) ; j++)
+		buf[j] = deserializer.read();
 	return deserializer;
 }
 // 8-bits integral

@@ -29,8 +29,8 @@ template<typename Device
 to_binary<Device> & operator<<(to_binary<Device> & serializer, T i)
 {
 	char *buf = (char*)&i;
-	for (size_t i=i ; i<sizeof(i) ; i++)
-		serializer.write(buf[i]);
+	for (size_t j=0 ; j<sizeof(i) ; j++)
+		serializer.write(buf[j]);
 	return serializer;
 }
 // 8-bits integral type
