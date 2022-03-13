@@ -8,6 +8,7 @@
 
 #include "utttil/iou.hpp"
 
+#include "msg.hpp"
 
 bool test(std::string url)
 {
@@ -86,31 +87,6 @@ bool test(std::string url)
 	return recv_by_server == sent_by_client
 		&& recv_by_client == sent_by_server
 		;
-}
-
-struct msg
-{
-	int a;
-	std::string s;
-
-	template<typename Serializer>
-	void serialize(Serializer && ss) const
-	{
-		ss << a
-		  << s
-		  ;
-	}
-	template<typename Deserializer>
-	void deserialize(Deserializer && ss)
-	{
-		ss >> a
-		  >> s
-		  ;
-	}
-};
-bool operator==(const msg & left, const msg & right)
-{
-	return left.a == right.a && left.s == right.s;
 }
 
 bool test_msg(std::string url)
