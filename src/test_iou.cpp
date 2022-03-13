@@ -33,15 +33,15 @@ bool test(std::string url)
 
 	std::cout << "connect done" << std::endl;
 
-	std::shared_ptr<utttil::iou::peer> server_client_sptr;
+	std::shared_ptr<utttil::iou::peer<>> server_client_sptr;
 
 	for (;;)
 	{
-		if ( ! server_sptr->accepted.empty())
+		if ( ! server_sptr->accept_inbox.empty())
 		{
 			std::cout << "Accepted" << std::endl;
-			server_client_sptr = server_sptr->accepted.front();
-			server_sptr->accepted.pop_front();
+			server_client_sptr = server_sptr->accept_inbox.front();
+			server_sptr->accept_inbox.pop_front();
 			break;
 		}
 	}
@@ -88,11 +88,116 @@ bool test(std::string url)
 		;
 }
 
+struct msg
+{
+	int a;
+	std::string s;
+
+	template<typename Serializer>
+	void serialize(Serializer && ss) const
+	{
+		ss << a
+		  << s
+		  ;
+	}
+	template<typename Deserializer>
+	void deserialize(Deserializer && ss)
+	{
+		ss >> a
+		  >> s
+		  ;
+	}
+};
+bool operator==(const msg & left, const msg & right)
+{
+	return left.a == right.a && left.s == right.s;
+}
+
+bool test_msg(std::string url)
+{
+	msg sent_by_client = {1234, "32jk1hkjh1k3j4h62kj345h6345kljh345kj7h"};
+	msg sent_by_server = {43214231, "4322431423412412412341243213"};
+	msg recv_by_client;
+	msg recv_by_server;
+
+	utttil::iou::context<msg> ctx;
+	ctx.run();
+	
+	std::cout << "context running" << std::endl;
+
+	// server
+	auto server_sptr = ctx.bind(url);
+	if ( !server_sptr)
+	{
+		std::cerr << "bind failed" << std::endl;
+		return false;
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	std::cout << "bind done" << std::endl;
+
+	// client
+	auto client_sptr = ctx.connect(url);
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	std::cout << "connect done" << std::endl;
+
+	std::shared_ptr<utttil::iou::peer<msg>> server_client_sptr;
+
+	for (;;)
+	{
+		if ( ! server_sptr->accept_inbox.empty())
+		{
+			std::cout << "Accepted" << std::endl;
+			server_client_sptr = server_sptr->accept_inbox.front();
+			server_sptr->accept_inbox.pop_front();
+			break;
+		}
+	}
+
+	client_sptr->async_send(sent_by_client);
+	std::cout << "msg sent by client" << std::endl;
+
+	for (;;)
+	{
+		if ( ! server_client_sptr->inbox_msg.empty())
+		{
+			std::cout << "msg rcvd by server" << std::endl;
+			msg & data = server_client_sptr->inbox_msg.front();
+			recv_by_server = data;
+			server_client_sptr->inbox_msg.pop_front();
+
+			server_client_sptr->async_send(sent_by_server);
+			break;
+		}
+	}
+
+	std::cout << "reply sent by client" << std::endl;
+
+
+	for (;;)
+	{
+		if ( ! client_sptr->inbox_msg.empty())
+		{
+			std::cout << "msg rcvd by client" << std::endl;
+			msg & data = client_sptr->inbox_msg.front();
+			recv_by_client = data;
+			client_sptr->inbox_msg.pop_front();
+			break;
+		}
+	}
+
+	return recv_by_server == sent_by_client
+		&& recv_by_client == sent_by_server
+		;
+}
+
 int main()
 {
 	bool success = true
 		//&& test("ws://127.0.0.1:1234/")
 		&& test("tcp://127.0.0.1:1234/")
+		&& test_msg("tcp://127.0.0.1:4321/")
 		;
 
 	return success?0:1;
