@@ -12,6 +12,10 @@ struct no_init
         static_assert(sizeof *this == sizeof value, "invalid size");
         static_assert(__alignof *this == __alignof value, "invalid alignment");
     }
+    template<typename U>
+    no_init(U u)
+        : value(u)
+    {}
     operator T() const { return value; }
     T & operator=(T other)
     {
