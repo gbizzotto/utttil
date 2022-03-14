@@ -136,13 +136,25 @@ struct ring_buffer
 		front_ = f;
 		return result;
 	}
-	T & construct_back()
+	T & reserve_back()
 	{
 		while (full())
 			_mm_pause();
 		new (&data[back_]) T;
 		T & result = data[back_];
 		return result;	
+	}
+	T & reserved_back()
+	{
+		return data[back_];
+	}
+	void commit_back()
+	{
+		back_ = inc(back_);
+	}
+	void rollback_back()
+	{
+		data[back_].~T();
 	}
 	T & push_back()
 	{
@@ -157,8 +169,8 @@ struct ring_buffer
 	{
 		if (&t == &data[back_])
 		{
-			inc(back_);
-			return t;
+			back_ = inc(back_);
+			return data[back_];
 		}
 		while (full())
 			_mm_pause();
@@ -182,7 +194,7 @@ struct ring_buffer
 	{
 		if (&t == &data[back_])
 		{
-			inc(back_);
+			back_ = inc(back_);
 			return data[back_];
 		}
 		while (full())
