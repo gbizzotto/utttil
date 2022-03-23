@@ -1,8 +1,6 @@
 
 #pragma once
 
-#warning to_plain_binary is DEPRECATED
-
 #include <functional>
 #include <type_traits>
 #include <string>

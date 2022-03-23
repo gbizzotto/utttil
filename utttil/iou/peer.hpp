@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <utttil/perf.hpp>
+
 namespace utttil {
 namespace iou {
 
@@ -58,15 +60,17 @@ inline int client_socket(const std::string & addr, int port)
 	}
 	return sock;
 }
+/*
 
 using buffer = std::vector<char>;
 
+template<size_t Capacity>
 struct inbox_reader
 {
-	utttil::ring_buffer<buffer> & inbox;
-	typename utttil::ring_buffer<buffer>::iterator it_inbox;
+	utttil::ring_buffer<buffer, Capacity> & inbox;
+	typename utttil::ring_buffer<buffer, Capacity>::iterator it_inbox;
 	typename buffer::iterator it_vec;
-	inline inbox_reader(utttil::ring_buffer<buffer> & inbox_)
+	inline inbox_reader(utttil::ring_buffer<buffer, Capacity> & inbox_)
 		: inbox(inbox_)
 		, it_inbox(inbox.begin())
 		, it_vec(it_inbox->begin())
@@ -116,7 +120,7 @@ struct inbox_reader
 		inbox.erase(inbox.begin(), it_inbox);
 	}
 };
-
+*/
 
 enum Action
 {
@@ -124,7 +128,9 @@ enum Action
 	Accept = 1,
 	Read   = 2,
 	Write  = 3,
-	Pack   = 4,
+	Accept_Deferred = 4,
+	Read_Deferred   = 5,
+	Write_Deferred  = 6,
 };
 
 struct no_msg_t {};
@@ -137,48 +143,29 @@ struct peer
 	io_uring & ring;
 
 	// acceptor
-	const static size_t default_accept_inbox_size_ = 16;
+	inline static constexpr size_t accept_inbox_capacity_bits = 8;
 	sockaddr_in accept_client_addr;
 	socklen_t client_addr_len = sizeof(sockaddr_in);
-	utttil::ring_buffer<std::shared_ptr<peer>> accept_inbox;
+	utttil::ring_buffer<std::shared_ptr<peer>, accept_inbox_capacity_bits> accept_inbox;
 
 	// writer
-	const static size_t default_outbox_size = 16;
-	iovec write_iov[1];
-	utttil::ring_buffer<buffer> outbox;
-	const static size_t default_outbox_msg_size;
-	utttil::ring_buffer<MsgT> outbox_msg;
+	inline static constexpr size_t outbox_capacity_bits = 16;
+	inline static constexpr size_t outbox_msg_capacity_bits = 10;
+	iovec write_iov[2];
+	utttil::ring_buffer<char, outbox_capacity_bits> outbox;
+	utttil::ring_buffer<MsgT, outbox_msg_capacity_bits> outbox_msg;
 
 	// reader
-	const static size_t default_input_ring_buffer_size = 16;
-	const static size_t min_input_chunk_size = 2048;
-	const static size_t max_input_chunk_size = 2048;
-	iovec read_iov[1];
-	utttil::ring_buffer<buffer> inbox;
-	size_t input_chunk_size;
-	std::vector<no_init<char>> recv_buffer;
-	const static size_t default_inbox_msg_size;
-	utttil::ring_buffer<MsgT> inbox_msg;
+	inline static constexpr size_t inbox_capacity_bits = 16;
+	inline static constexpr size_t inbox_msg_capacity_bits = 10;
+	iovec read_iov[2];
+	utttil::ring_buffer<char, inbox_capacity_bits> inbox;
+	utttil::ring_buffer<MsgT, inbox_msg_capacity_bits> inbox_msg;
 
-	peer( size_t id_
-		, int fd_
-		, io_uring & ring_
-		, size_t accept_inbox_size_      = default_accept_inbox_size_
-		, size_t output_ring_buffer_size = default_outbox_size
-		, size_t outbox_msg_size         = default_outbox_msg_size
-		, size_t input_ring_buffer_size  = default_input_ring_buffer_size
-		, size_t input_chunk_size_       = min_input_chunk_size
-		, size_t inbox_msg_size          = default_inbox_msg_size
-		)
+	peer(size_t id_, int fd_, io_uring & ring_)
 		: id(id_)
 		, fd(fd_)
 		, ring(ring_)
-		, accept_inbox(accept_inbox_size_)
-		, outbox(output_ring_buffer_size)
-		, outbox_msg(outbox_msg_size)
-		, inbox(input_ring_buffer_size)
-		, input_chunk_size(input_chunk_size_)
-		, inbox_msg(inbox_msg_size)
 	{}
 
 	static std::shared_ptr<peer> connect(size_t id, io_uring & ring, const utttil::url & url)
@@ -200,186 +187,216 @@ struct peer
 		return std::make_shared<peer>(id, fd, ring);
 	}
 
-	size_t outbox_size()
+	void signal(Action action)
 	{
-		size_t result = 0;
-		for (auto it=outbox.begin() ; it!=outbox.end() ; ++it)
-			result += it->size();
-		return result;
-	}
-	size_t inbox_size()
-	{
-		size_t result = 0;
-		for (auto it=inbox.begin() ; it!=inbox.end() ; ++it)
-			result += it->size();
-		return result;
+		io_uring_sqe * sqe = io_uring_get_sqe(&ring);
+		while(sqe == nullptr)
+		{
+			_mm_pause();
+			sqe = io_uring_get_sqe(&ring);
+		}
+		io_uring_prep_nop(sqe);
+		size_t user_data = (id << 3) | action;
+		io_uring_sqe_set_data(sqe, (void*)user_data);
+		io_uring_submit(&ring);
 	}
 
-	void async_accept()
+	void accept_loop()
 	{
 		if (fd == -1)
 			return;
+		if (accept_inbox.full())
+		{
+			//std::cout << "send Action::Accept_Deferred" << std::endl;
+			return signal(Action::Accept_Deferred);
+		}
 		io_uring_sqe * sqe = io_uring_get_sqe(&ring);
-		if (sqe == nullptr)
-			return;
+		while(sqe == nullptr)
+		{
+			_mm_pause();
+			sqe = io_uring_get_sqe(&ring);
+		}
+		std::cout << "accept 1" << std::endl;
 		io_uring_prep_accept(sqe, fd, (sockaddr*) &accept_client_addr, &client_addr_len, 0);
 		size_t user_data = (id << 3) | Action::Accept;
 		io_uring_sqe_set_data(sqe, (void*)user_data);
 		io_uring_submit(&ring);
+		return;
 	}
-	void async_write(buffer && data)
+	void write_loop()
 	{
-		while(outbox.full())
-			_mm_pause();
-		outbox.emplace_back(std::move(data));
-		write_iov[0].iov_base = outbox.back().data();
-		write_iov[0].iov_len = outbox.back().size();
+		//std::cout << __func__ << std::endl;
+		if (fd == -1) {
+			return;
+		}
+		if (outbox.empty()) {
+			pack();
+			return signal(Action::Write_Deferred);
+		}
+		std::tie(write_iov[0].iov_base, write_iov[0].iov_len) = outbox.front_stretch();
+		std::tie(write_iov[1].iov_base, write_iov[1].iov_len) = outbox.front_stretch_2();
+		//std::cout << "sending write signal for " << write_iov[0].iov_len << std::endl;
 
 		struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-		io_uring_prep_writev(sqe, fd, &write_iov[0], 1, 0);
+		while(sqe == nullptr)
+		{
+			_mm_pause();
+			sqe = io_uring_get_sqe(&ring);
+		}
+		io_uring_prep_writev(sqe, fd, &write_iov[0], 1 + (write_iov[1].iov_len > 0), 0);
 		size_t user_data = (id << 3) | Action::Write;
 		io_uring_sqe_set_data(sqe, (void*)user_data);
 		io_uring_submit(&ring);
-	}
-	void async_read()
-	{
-		recv_buffer.resize(input_chunk_size);
-		read_iov[0].iov_base = recv_buffer.data();
-		read_iov[0].iov_len = recv_buffer.size();
 
+		pack();
+	}
+	void read_loop()
+	{
+		//std::cout << __func__ << std::endl;
+		if (fd == -1)
+			return;
+		if (inbox.full())
+		{
+			unpack();
+			//std::cout << "send Action::Read_Deferred" << std::endl;
+			return signal(Action::Read_Deferred);
+		}
+		std::tie(read_iov[0].iov_base, read_iov[0].iov_len) = inbox.back_stretch();
+		std::tie(read_iov[1].iov_base, read_iov[1].iov_len) = inbox.back_stretch_2();
 		io_uring_sqe * sqe = io_uring_get_sqe(&ring);
-		io_uring_prep_readv(sqe, fd, &read_iov[0], 1, 0);
+		while(sqe == nullptr)
+		{
+			_mm_pause();
+			sqe = io_uring_get_sqe(&ring);
+		}
+		io_uring_prep_readv(sqe, fd, &read_iov[0], 1 + (read_iov[1].iov_len > 0), 0);
 		size_t user_data = (id << 3) | Action::Read;
 		io_uring_sqe_set_data(sqe, (void*)user_data);
 		io_uring_submit(&ring);
-	}
 
-	void pack_signal()
-	{
-		io_uring_sqe * sqe = io_uring_get_sqe(&ring);
-		io_uring_prep_nop(sqe);
-		size_t user_data = (id << 3) | Action::Pack;
-		io_uring_sqe_set_data(sqe, (void*)user_data);
-		io_uring_submit(&ring);
-	}
-
-	void async_send(const MsgT & msg)
-	{
-		outbox_msg.push_back(msg);
-		pack_signal(); // serialize later
-	}
-	void async_send(MsgT && msg)
-	{
-		outbox_msg.push_back(std::move(msg));
-		pack_signal(); // serialize later
-	}
-	void send(const MsgT & msg)
-	{
-		buffer v;
-		v.reserve(sizeof(msg)+2);
-		v.push_back(0);
-		v.push_back(0);
-		auto s = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(v));
-		s << msg;
-		size_t size = v.size() - 2;
-		v.front() = (size/256) & 0xFF;
-		*std::next(v.begin()) = size & 0xFF;
-		async_write(std::move(v));
+		unpack();
 	}
 
 	std::shared_ptr<peer> accepted(size_t id, int fd)
 	{
-		return std::make_shared<peer>(id, fd, ring);
+		auto new_peer_sptr = std::make_shared<peer>(id, fd, ring);;
+		accept_inbox.push_back(new_peer_sptr);
+		accept_loop();
+		return new_peer_sptr;
 	}
 	void sent(size_t count)
 	{
-		while (outbox.size() > 0 && count >= outbox.front().size())
-		{
-			count -= outbox.front().size();
-			outbox.pop_front();
-		}
-		if (count > 0 && count < outbox.front().size())
-			outbox.front().erase(outbox.front().begin(), outbox.front().begin()+count);
+		//std::cout << __func__ << count << std::endl;
+		//std::cout << "sent() outbox size: " << outbox.size() << std::endl;
+		assert(count <= outbox.size());
+		outbox.advance_front(count);
+		write_loop();
 	}
 	void rcvd(size_t count)
 	{
-		if (count == recv_buffer.size() && input_chunk_size < max_input_chunk_size) // buffer full
-			input_chunk_size *= 2;
-		else if (count < recv_buffer.size() / 2 && input_chunk_size > min_input_chunk_size) // buffer mostly empty
-			input_chunk_size /= 2;
-		recv_buffer.resize(count);
-		while(inbox.full())
-			_mm_pause();
-		inbox.push_back(std::move(*(buffer*)&recv_buffer));
-		async_read();
-		unpack();
+		//std::cout << __func__ << count << std::endl;
+		assert(count <= inbox.free_size());
+		inbox.advance_back(count);
+		read_loop();
 	}
 
 	void pack()
 	{
-		if (outbox_msg.empty())
-			return; // nothing to do
-		if (outbox.full())
-			pack_signal(); // try later
-		send(outbox_msg.front());
-		outbox_msg.pop_front();
-	}
+		while ( ! outbox_msg.empty())
+		{
+			MsgT & msg = outbox_msg.front();
 
+			auto size_preview_serializer = utttil::srlz::to_binary(utttil::srlz::device::null_writer());
+			size_preview_serializer << msg;
+			size_t msg_size = size_preview_serializer.write.size();
+			size_preview_serializer << msg_size; // add size field
+			size_t total_size = size_preview_serializer.write.size();
+
+			std::cout << "Total size: " << total_size << std::endl;
+
+			if (outbox.free_size() < total_size) {
+				return;
+			}
+			try {
+				auto stretch1 = outbox.back_stretch();
+				auto stretch2 = outbox.back_stretch_2();
+				auto s = utttil::srlz::to_binary(utttil::srlz::device::ring_buffer_writer(stretch1, stretch2, total_size));
+				s << msg_size;
+				s << msg;
+				outbox.advance_back(s.write.size());
+				outbox_msg.pop_front();
+			} catch (utttil::srlz::device::stream_end_exception &) {
+				std::cout << "send() stream_end_exception" << std::endl;
+				return;
+			}
+		}
+	}
 	void unpack()
 	{
-		//std::cout << "unpack" << std::endl;
-		if (inbox.empty()) {
-			std::cout << "unpack but inbox is empty" << std::endl;
-			return;
-		}
-		if (inbox_msg.full()) {
-			std::cout << "unpack but inbox_msg is full" << std::endl;
-			return;
-		}
-
-		auto deserializer = utttil::srlz::from_binary(inbox_reader(inbox));
-		auto checkpoint(deserializer.read);
-		for (;;)
+		while ( ! inbox_msg.full())
 		{
+			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ring_buffer_reader(inbox, inbox.size()));
+			size_t msg_size;
+			size_t total_size;
 			try {
-				if (deserializer.read.inbox_size_left() < 2)
-					break;
-				size_t msg_size = (deserializer.read() << 8) + deserializer.read();
-				if (msg_size == 0) {
-					std::cout << "iou msg size is zero, this can't be good..." << std::endl;
-					break;
-				}
-				if (msg_size > deserializer.read.inbox_size_left()) {
-					//std::cout << "iou inbox does not contain a full msg" << std::endl;
-					break;
-				}
-				MsgT msg;
-				deserializer >> msg;				
-				inbox_msg.push_back(std::move(msg)); // blocks
-
+				deserializer >> msg_size;
 			} catch (utttil::srlz::device::stream_end_exception &) {
 				break;
 			}
-			checkpoint = deserializer.read;
+			total_size = msg_size + deserializer.read.size();
+			if (total_size > inbox.size()) {
+				break;
+			}
+			MsgT & msg = inbox_msg.back();
+			try {
+				deserializer >> msg;
+			} catch (utttil::srlz::device::stream_end_exception &) {
+				std::cout << ">> failed" << std::endl;
+				break;
+			}
+			assert(deserializer.read.size() == total_size);
+			inbox_msg.advance_back(1);
+			inbox.advance_front(deserializer.read.size());
 		}
-		checkpoint.update_inbox();
 	}
+
+
+	void async_write(const char * data, size_t len)
+	{
+		//std::cout << "async_write() outbox size: " << outbox.size() << std::endl;
+		
+		while(len > 0)
+		{
+			while (outbox.full())
+			{
+				if (fd == -1)
+					return;
+				_mm_pause();
+			}
+			auto stretch = outbox.back_stretch();
+			size_t len_to_write = std::min(len, std::get<1>(stretch));
+			memcpy(std::get<0>(stretch), data, len_to_write);
+			outbox.advance_back(len_to_write);
+
+			data += len_to_write;
+			len  -= len_to_write;
+		}
+		//std::cout << "async_write: " << data.size() << std::endl;
+	}
+	void async_send(const MsgT & msg)
+	{
+		outbox_msg.push_back(msg);
+	}
+	void async_send(MsgT && msg)
+	{
+		outbox_msg.push_back(std::move(msg));
+	}
+
 };
 
 template<>
 void peer<no_msg_t>::pack() {}
 template<>
 void peer<no_msg_t>::unpack() {}
-
-template<typename T>
-const size_t peer<T>::default_outbox_msg_size = 16;
-template<>
-inline const size_t peer<no_msg_t>::default_outbox_msg_size = 0;
-
-template<typename T>
-const size_t peer<T>::default_inbox_msg_size = 16;
-template<>
-inline const size_t peer<no_msg_t>::default_inbox_msg_size = 0;
-
 
 }} // namespace

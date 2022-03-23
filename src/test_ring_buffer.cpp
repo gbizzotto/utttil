@@ -8,7 +8,7 @@
 
 bool test_back()
 {
-	utttil::ring_buffer<int> rb(16);
+	utttil::ring_buffer<int, 4> rb;
 
 	ASSERT_ACT(rb.capacity(), ==, 16ull, return false);
 	ASSERT_ACT(rb.size()    , ==,  0ull, return false);
@@ -20,57 +20,12 @@ bool test_back()
 	{
 		rb.push_back(i);
 		ASSERT_MSG_ACT(rb.front   (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.back    (), ==, (int)i  , std::to_string(i), return false);
 		ASSERT_MSG_ACT(rb.size    (), ==, i+1ull, std::to_string(i), return false);
 		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
 	}
 	ASSERT_ACT(rb.full(), ==, true, return false);
 	ASSERT_ACT(rb.empty(), ==, false, return false);
 
-	// pop_back
-	for (size_t i=rb.capacity() ; i>0 ; i--)
-	{
-		ASSERT_MSG_ACT(rb.front   (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.back    (), ==, (int)i-1, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.size    (), ==, i  , std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
-		rb.pop_back();
-	}
-	ASSERT_ACT(rb.size(), ==, 0ull, return false);
-	ASSERT_ACT(rb.full(), ==, false, return false);
-	ASSERT_ACT(rb.empty(), ==, true, return false);
-
-	return true;
-}
-
-bool test_front()
-{
-	utttil::ring_buffer<int> rb(16);
-
-	ASSERT_ACT(rb.capacity(), ==, 16ull, return false);
-	ASSERT_ACT(rb.size()    , ==,  0ull, return false);
-
-	// push_back
-	for (size_t i=0 ; i<rb.capacity() ; i++)
-	{
-		rb.push_front(i);
-		ASSERT_MSG_ACT(rb.back    (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.front   (), ==, (int)i  , std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.size    (), ==, i+1, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
-	}
-		ASSERT_ACT(rb.back(), ==, 0, return false);
-
-	// pop_back
-	for (size_t i=rb.capacity() ; i>0 ; i--)
-	{
-		ASSERT_MSG_ACT(rb.back    (), ==,   0, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.front   (), ==, (int)i-1, std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.size    (), ==, i  , std::to_string(i), return false);
-		ASSERT_MSG_ACT(rb.capacity(), ==,  16ull, std::to_string(i), return false);
-		rb.pop_front();
-	}
-	ASSERT_ACT(rb.size(), ==, 0ull, return false);
 	return true;
 }
 
@@ -104,80 +59,92 @@ public:
 		value = 0;
 		--counter;
 	}
+	C & operator=(const C & other)
+	{
+		value = other.value;
+		return *this;
+	}
 };
 
 bool test_object()
 {
-	utttil::ring_buffer<C> rb(23);
+	utttil::ring_buffer<C, 5> rb;
 
-	ASSERT_ACT(0ull, ==, C::counter, return false);
 
 	// back
 	rb.push_back(123);
 	ASSERT_ACT(rb.front().value, ==, 123, return false);
-	ASSERT_ACT(rb.back().value, ==, 123, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
 	
 	rb.emplace_back(321);
 	ASSERT_ACT(rb.front().value, ==, 123, return false);
-	ASSERT_ACT(rb.back().value, ==, 321, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
 
 	{
 		C c(111);
 		rb.push_back(c);
 	}
 	ASSERT_ACT(rb.front().value, ==, 123, return false);
-	ASSERT_ACT(rb.back().value, ==, 111, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
 
 	{
 		C c(222);
 		rb.emplace_back(std::move(c));
 	}
 	ASSERT_ACT(rb.front().value, ==, 123, return false);
-	ASSERT_ACT(rb.back().value, ==, 222, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
 
-	while(rb.size())
-	{
-		rb.pop_back();
-		ASSERT_ACT(rb.size(), ==, C::counter, return false);
-	}
+	return true;
+}
 
+bool test_stretches()
+{
+	utttil::ring_buffer<char,10> rb;
 
-	// front
-	rb.push_front(123);
-	ASSERT_ACT(rb.back().value, ==, 123, return false);
-	ASSERT_ACT(rb.front().value, ==, 123, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
-	
-	rb.emplace_front(321);
-	ASSERT_ACT(rb.back().value, ==, 123, return false);
-	ASSERT_ACT(rb.front().value, ==, 321, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
+	auto t = rb.front_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, rb.data, return false);
+	ASSERT_ACT(std::get<1>(t), ==, 0ull, return false);
+	t = rb.back_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, rb.data, return false);
+	ASSERT_ACT(std::get<1>(t), ==, rb.capacity(), return false);
 
-	{
-		C c(111);
-		rb.push_front(c);
-	}
-	ASSERT_ACT(rb.back().value, ==, 123, return false);
-	ASSERT_ACT(rb.front().value, ==, 111, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
+	for (int i=0 ; i<100 ; i++)
+		rb.push_back('a');
 
-	{
-		C c(222);
-		rb.emplace_front(std::move(c));
-	}
-	ASSERT_ACT(rb.back().value, ==, 123, return false);
-	ASSERT_ACT(rb.front().value, ==, 222, return false);
-	ASSERT_ACT(rb.size(), ==, C::counter, return false);
+	ASSERT_ACT(rb.size(), ==, 100ull, return false);
+	t = rb.front_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, rb.data, return false);
+	ASSERT_ACT(std::get<1>(t), ==, 100ull, return false);
+	t = rb.back_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[100], return false);
+	ASSERT_ACT(std::get<1>(t), ==, rb.capacity()-100, return false);
 
-	while(rb.size())
-	{
-		rb.pop_front();
-		ASSERT_ACT(rb.size(), ==, C::counter, return false);
-	}
+	rb.pop_front(50);
+
+	ASSERT_ACT(rb.size(), ==, 50ull, return false);
+	t = rb.front_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[50], return false);
+	ASSERT_ACT(std::get<1>(t), ==, 50ull, return false);
+	t = rb.back_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[100], return false);
+	ASSERT_ACT(std::get<1>(t), ==, rb.capacity()-100, return false);
+
+	rb.pop_front(50);
+
+	ASSERT_ACT(rb.size(), ==, 0ull, return false);
+	t = rb.front_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[100], return false);
+	ASSERT_ACT(std::get<1>(t), ==, 0ull, return false);
+	t = rb.back_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[100], return false);
+	ASSERT_ACT(std::get<1>(t), ==, rb.capacity()-100, return false);
+
+	for (int i=0 ; i<1024-50 ; i++)
+		rb.push_back('a');
+
+	ASSERT_ACT(rb.size(), ==, 1024ull-50, return false);
+	t = rb.front_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[100], return false);
+	ASSERT_ACT(std::get<1>(t), ==, rb.capacity()-100, return false);
+	t = rb.back_stretch();
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[50], return false);
+	ASSERT_ACT(std::get<1>(t), ==, 50ull, return false);
 
 	return true;
 }
@@ -186,65 +153,36 @@ bool test_thread_safety_fuzz()
 {
 	std::atomic_bool go_on = true;
 	const int total = 10000000;
-	utttil::ring_buffer<size_t> rb(23);
+	utttil::ring_buffer<int, 5> rb;
 
-	utttil::measurement_point mp("pup_back + pop");
+	utttil::measurement_point mp("push_back + pop");
 	utttil::measurement m(mp);
 
 	std::thread twrite([&]()
 		{
 			for (int i=0 ; i<total && go_on ; i++)
-			{
-				try {
-					while(rb.full() && go_on)
-					{}
-				} catch (std::exception &) {
-					std::cout << "exception in full()" << std::endl;
-				}
-				try {
-					rb.push_back(i);
-				} catch (std::exception &) {
-					std::cout << "exception in push_back()" << std::endl;
-				}
-			}
+				rb.push_back(i);
 		});
-	int res = -1;
 	std::thread tread([&]()
 		{
 			for (int i=0 ; i<total; i++)
 			{
-				try {
-					while(rb.empty())
-					{}
-				} catch (std::exception &) {
-					std::cout << "exception in empty()" << std::endl;
-				}
-				int r = -1;
-				try {
-					r = rb.front();
-				} catch (std::exception &) {
-					std::cout << "exception in front()" << std::endl;
-				}
-				try {
-					rb.pop_front();
-				} catch (std::exception &) {
-					std::cout << "exception in pop_front()" << std::endl;
-				}
-				if (r != res+1)
+				auto r = rb.front();
+				rb.pop_front();
+				if (r != i)
 				{
 					go_on = false;
 					std::cout << "Unordered" << std::endl;
 					return;
 				}
-				res = r;
+				++mp.run_count;
 			}
 		});
 
 	twrite.join();
 	tread.join();
 
-	ASSERT_ACT(res, ==, total-1, return 1);
-	mp.run_count = total;
+	ASSERT_ACT(mp.run_count, ==, (size_t)total, return 1);
 
 	return true;
 }
@@ -253,8 +191,8 @@ int main()
 {
 	bool success = true
 		&& test_back()
-		&& test_front()
 		&& test_object()
+		&& test_stretches()
 		&& test_thread_safety_fuzz()
 		;
 

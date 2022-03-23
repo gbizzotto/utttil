@@ -1,8 +1,6 @@
 
 #pragma once
 
-#warning from_plain_binary is DEPRECATED
-
 #include <string>
 #include <map>
 #include <functional>

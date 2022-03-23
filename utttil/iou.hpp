@@ -78,7 +78,7 @@ struct context
 			return nullptr;
 
 		peers[peer_sptr->id] = peer_sptr;
-		peer_sptr->async_accept();
+		peer_sptr->accept_loop();
 		return peer_sptr;
 	}
 
@@ -92,7 +92,8 @@ struct context
 			return nullptr;
 
 		peers[peer_sptr->id] = peer_sptr;
-		peer_sptr->async_read();
+		peer_sptr->read_loop();
+		peer_sptr->write_loop();
 		return peer_sptr;
 	}
 
@@ -106,6 +107,7 @@ struct context
 
 		while (go_on)
 		{
+			//std::cout << "loop" << std::endl;
 			int ret = io_uring_wait_cqe_timeout(&ring, &cqe, &timeout);
 			if (ret == -ETIME) {
 				continue;
@@ -121,7 +123,7 @@ struct context
 			auto peer_it = peers.find(id);
 			if (peer_it == peers.end())
 				continue;
-			std::shared_ptr<peer<MsgT>> peer_sptr(peers[id]);
+			std::shared_ptr<peer<MsgT>> peer_sptr = peers[id].lock();
 			if ( ! peer_sptr)
 			{
 				std::cout << "! peer_sptr" << std::endl;
@@ -130,6 +132,7 @@ struct context
 			}
 			if (cqe->res < 0) {
 				std::cerr << "Async request failed: " << strerror(-cqe->res) << std::endl;
+				std::cerr << "Action was: " << action << std::endl;
 				peer_sptr->fd = -1;
 				return;
 			}
@@ -148,15 +151,15 @@ struct context
 						break;
 					}
 					peers[new_peer_sptr->id] = new_peer_sptr;
-					new_peer_sptr->async_read();
-					peer_sptr->accept_inbox.push_back(new_peer_sptr);
-					peer_sptr->async_accept();
+					new_peer_sptr->read_loop();
+					new_peer_sptr->write_loop();
 					break;
 				}
+				case Action::Accept_Deferred:
+					peer_sptr->accept_loop();
+					break;
 				case Action::Read:
-				{
 					//std::cout << "iou read " << cqe->res << std::endl;
-
 					if (cqe->res < 0) {
 						std::cout << "closing" << std::endl;
 						peer_sptr->fd = -1;
@@ -165,19 +168,16 @@ struct context
 						peer_sptr->rcvd(cqe->res);
 					}
 					break;
-				}
+				case Action::Read_Deferred:
+					peer_sptr->read_loop();
+					break;
 				case Action::Write:
-				{
-					//std::cout << "iou write " << cqe->res << std::endl;
-
+					//std::cout << "iou wrote " << cqe->res << std::endl;
 					peer_sptr->sent(cqe->res);
 					break;
-				}
-				case Action::Pack:
-				{
-					peer_sptr->pack();
+				case Action::Write_Deferred:
+					peer_sptr->write_loop();
 					break;
-				}
 				default:
 					std::cerr << "iou Invalid action " << (int)action << std::endl;
 					break;
@@ -185,6 +185,7 @@ struct context
 			/* Mark this request as processed */
 			io_uring_cqe_seen(&ring, cqe);
 		}
+		std::cout << "loop ended" << std::endl;
 	}
 };
 

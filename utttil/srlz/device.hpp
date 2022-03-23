@@ -5,11 +5,21 @@
 #include <exception>
 #include <iostream>
 
+#include <utttil/ring_buffer.hpp>
+
 namespace utttil {
 namespace srlz {
 namespace device {
 
 struct stream_end_exception : std::exception {};
+
+struct null_writer
+{
+	size_t size_ = 0;
+	void operator()(char) { size_++; }
+	inline void flush() {}
+	inline size_t size() const { return size_; }
+};
 
 template<typename Container>
 struct back_pusher
@@ -170,6 +180,88 @@ struct ostream_writer
 	}
 	inline void flush() {};
 	inline size_t size() const { return count; }
+};
+
+template<typename RB>
+struct ring_buffer_reader
+{
+	using T = typename RB::value_type;
+	using value_type = T;
+
+	std::tuple<T*, size_t> stretch_1;
+	std::tuple<T*, size_t> stretch_2;
+	size_t read_count = 0;
+	size_t max;
+
+	inline ring_buffer_reader(RB & rb, size_t max_)
+		: stretch_1(rb.front_stretch())
+		, stretch_2(rb.front_stretch_2())
+		, max(max_)
+	{}
+	inline T & operator()()
+	{
+		if (read_count >= max)
+			throw stream_end_exception();
+		if (std::get<1>(stretch_1) > 0)
+		{
+			T & result = *std::get<0>(stretch_1);
+			++std::get<0>(stretch_1);
+			--std::get<1>(stretch_1);
+			++read_count;
+			return result;
+		}
+		else if (std::get<1>(stretch_2) > 0)
+		{
+			T & result = *std::get<0>(stretch_2);
+			++std::get<0>(stretch_2);
+			--std::get<1>(stretch_2);
+			++read_count;
+			return result;
+		}
+		else
+			throw stream_end_exception();
+	}
+	inline size_t size() const { return read_count; }
+};
+
+template<typename T>
+struct ring_buffer_writer
+{
+	std::tuple<T*, size_t> stretch_1;
+	std::tuple<T*, size_t> stretch_2;
+	size_t written_count = 0;
+	size_t max;
+
+	inline ring_buffer_writer(std::tuple<T*, size_t> & stretch_1_
+	                         ,std::tuple<T*, size_t> & stretch_2_
+	                         ,size_t max_)
+		: stretch_1(stretch_1_)
+		, stretch_2(stretch_2_)
+		, max(max_)
+	{}
+	inline void operator()(const T & t)
+	{
+		if (written_count >= max)
+			throw stream_end_exception();
+		if (std::get<1>(stretch_1) > 0)
+		{
+			*std::get<0>(stretch_1) = t;
+			++std::get<0>(stretch_1);
+			--std::get<1>(stretch_1);
+			++written_count;
+		}
+		else if (std::get<1>(stretch_2) > 0)
+		{
+			*std::get<0>(stretch_2) = t;
+			++std::get<0>(stretch_2);
+			--std::get<1>(stretch_2);
+			++written_count;
+		}
+		else
+			throw stream_end_exception();
+	}
+	inline void flush() {};
+	inline size_t size() const { return written_count; }
 };
 
 }}} // namespace
