@@ -216,7 +216,6 @@ struct peer
 			_mm_pause();
 			sqe = io_uring_get_sqe(&ring);
 		}
-		std::cout << "accept 1" << std::endl;
 		io_uring_prep_accept(sqe, fd, (sockaddr*) &accept_client_addr, &client_addr_len, 0);
 		size_t user_data = (id << 3) | Action::Accept;
 		io_uring_sqe_set_data(sqe, (void*)user_data);
@@ -227,10 +226,12 @@ struct peer
 	{
 		//std::cout << __func__ << std::endl;
 		if (fd == -1) {
+			std::cout << __func__ << " stopped fd == -1" << std::endl;
 			return;
 		}
 		if (outbox.empty()) {
 			pack();
+			//std::cout << __func__ << " deferred outbox empty" << std::endl;
 			return signal(Action::Write_Deferred);
 		}
 		std::tie(write_iov[0].iov_base, write_iov[0].iov_len) = outbox.front_stretch();
@@ -312,8 +313,6 @@ struct peer
 			size_preview_serializer << msg_size; // add size field
 			size_t total_size = size_preview_serializer.write.size();
 
-			std::cout << "Total size: " << total_size << std::endl;
-
 			if (outbox.free_size() < total_size) {
 				return;
 			}
@@ -363,8 +362,6 @@ struct peer
 
 	void async_write(const char * data, size_t len)
 	{
-		//std::cout << "async_write() outbox size: " << outbox.size() << std::endl;
-		
 		while(len > 0)
 		{
 			while (outbox.full())

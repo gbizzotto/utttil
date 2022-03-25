@@ -76,7 +76,6 @@ struct context
 		std::shared_ptr<peer<MsgT>> peer_sptr = peer<MsgT>::bind(next_id++, ring, url);
 		if ( ! peer_sptr)
 			return nullptr;
-
 		peers[peer_sptr->id] = peer_sptr;
 		peer_sptr->accept_loop();
 		return peer_sptr;
@@ -110,6 +109,7 @@ struct context
 			//std::cout << "loop" << std::endl;
 			int ret = io_uring_wait_cqe_timeout(&ring, &cqe, &timeout);
 			if (ret == -ETIME) {
+				std::cout << "io_uring_wait_cqe_timeout ETIME" << std::endl;
 				continue;
 			}
 			if (ret < 0) {
@@ -121,8 +121,11 @@ struct context
 			auto id = cqe->user_data >> 3;
 			//std::cout << "id: " << id << std::endl;
 			auto peer_it = peers.find(id);
-			if (peer_it == peers.end())
+			if (peer_it == peers.end()) {
+				std::cout << "loop() peer not found with id: " << id << std::endl;
+				io_uring_cqe_seen(&ring, cqe);
 				continue;
+			}
 			std::shared_ptr<peer<MsgT>> peer_sptr = peers[id].lock();
 			if ( ! peer_sptr)
 			{
