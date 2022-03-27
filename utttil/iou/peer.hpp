@@ -22,7 +22,8 @@ inline int socket()
 	}
 	return sock;
 }
-inline int server_socket(int port)
+
+inline int server_socket_tcp(int port)
 {
 	int sock = socket();
 	if (sock == -1)
@@ -43,7 +44,7 @@ inline int server_socket(int port)
 	}
 	return sock;
 }
-inline int client_socket(const std::string & addr, int port)
+inline int client_socket_tcp(const std::string & addr, int port)
 {
 	int sock = socket();
 	if (sock == -1)
@@ -60,67 +61,6 @@ inline int client_socket(const std::string & addr, int port)
 	}
 	return sock;
 }
-/*
-
-using buffer = std::vector<char>;
-
-template<size_t Capacity>
-struct inbox_reader
-{
-	utttil::ring_buffer<buffer, Capacity> & inbox;
-	typename utttil::ring_buffer<buffer, Capacity>::iterator it_inbox;
-	typename buffer::iterator it_vec;
-	inline inbox_reader(utttil::ring_buffer<buffer, Capacity> & inbox_)
-		: inbox(inbox_)
-		, it_inbox(inbox.begin())
-		, it_vec(it_inbox->begin())
-	{}
-	inbox_reader(const inbox_reader & other)
-		: inbox(other.inbox)
-		, it_inbox(other.it_inbox)
-		, it_vec  (other.it_vec  )
-	{}
-	inbox_reader & operator=(const inbox_reader & other)
-	{
-		it_inbox = other.it_inbox;
-		it_vec   = other.it_vec;
-		return *this;
-	}
-	inline const auto & operator()()
-	{
-		while (it_vec == it_inbox->end())
-		{
-			++it_inbox;
-			if (it_inbox == inbox.end())
-				throw utttil::srlz::device::stream_end_exception();
-			it_vec = it_inbox->begin();
-		}
-		//printf("%.02X-\n", *it_vec);
-		return *it_vec++;
-	}
-	inline size_t inbox_size_left()
-	{
-		auto it = it_inbox;
-		size_t result = std::distance(it_vec, it_inbox->end());
-		for (++it ; it!=inbox.end() ; ++it)
-			result += it->size();
-		return result;
-	}
-	inline void update_inbox()
-	{
-		while (it_vec == it_inbox->end())
-		{
-			++it_inbox;
-			if (it_inbox == inbox.end())
-				break;
-			it_vec = it_inbox->begin();
-		}		//std::cout << "update_inbox" << std::endl;
-		if (it_inbox != inbox.end())
-			it_inbox->erase(it_inbox->begin(), it_vec);
-		inbox.erase(inbox.begin(), it_inbox);
-	}
-};
-*/
 
 enum Action
 {
@@ -170,18 +110,22 @@ struct peer
 
 	static std::shared_ptr<peer> connect(size_t id, io_uring & ring, const utttil::url & url)
 	{
-		int fd = client_socket(url.host.c_str(), std::stoull(url.port));
+		int fd = -1;
+		if (url.protocol == "tcp")
+			fd = client_socket_tcp(url.host.c_str(), std::stoull(url.port));
 		if (fd == -1) {
-			std::cout << "client_socket() failed" << std::endl;
+			std::cout << "connect() failed on: " << url << std::endl;
 			return nullptr;
 		}
 		return std::make_shared<peer>(id, fd, ring);
 	}
 	static std::shared_ptr<peer> bind(size_t id, io_uring & ring, const utttil::url & url)
 	{
-		int fd = server_socket(std::stoull(url.port));
+		int fd = -1;
+		if (url.protocol == "tcp")
+			fd = server_socket_tcp(std::stoull(url.port));
 		if (fd == -1) {
-			std::cout << "client_socket() failed" << std::endl;
+			std::cout << "bind() failed on: " << url << std::endl;
 			return nullptr;
 		}
 		return std::make_shared<peer>(id, fd, ring);

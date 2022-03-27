@@ -20,6 +20,7 @@
 namespace utttil {
 namespace io {
 
+/*
 inline int set_non_blocking(int fd)
 {
 	int flags = ::fcntl(fd, F_GETFL, 0);
@@ -36,17 +37,18 @@ inline int set_non_blocking(int fd)
 	}
 	return 0;
 }
+*/
 
-inline int socket()
+inline int socket_tcp()
 {
 	int fd;
-	fd = ::socket(PF_INET, SOCK_STREAM, 0);
+	fd = ::socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (fd == -1) {
 		std::cerr << "socket() " << ::strerror(errno) << std::endl;
 		return -1;
 	}
-	///if (set_non_blocking(fd) < 0)
-	///	return -1;
+	//if (set_non_blocking(fd) < 0)
+	//	return -1;
 	int enable = 1;
 	if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
 		std::cerr << "setsockopt(SO_REUSEADDR) " << ::strerror(errno) << std::endl;
@@ -54,9 +56,9 @@ inline int socket()
 	}
 	return fd;
 }
-inline int server_socket(int port)
+inline int server_socket_tcp(int port)
 {
-	int fd = socket();
+	int fd = socket_tcp();
 	if (fd == -1)
 		return -1;
 
@@ -75,9 +77,26 @@ inline int server_socket(int port)
 	}
 	return fd;
 }
-inline int client_socket(const std::string & addr, int port)
+bool wait_for_tcp_connect(int fd)
 {
-	int fd = socket();
+	socklen_t optlen;
+	int optval;
+	for (;;)
+	{
+		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == -1)
+			std::cout << "getsockopt error" << std::endl;
+		if (optval == 0)
+			return true;
+		if (optval != EINPROGRESS)
+		{
+			std::cout << "connect error: " << strerror(errno) << std::endl;
+			return false;
+		}
+	}
+}
+inline int client_socket_tcp(const std::string & addr, int port)
+{
+	int fd = socket_tcp();
 	if (fd == -1)
 		return -1;
 
@@ -86,13 +105,56 @@ inline int client_socket(const std::string & addr, int port)
 	srv_addr.sin_family = AF_INET;
 	srv_addr.sin_port = ::htons(port);
 	srv_addr.sin_addr.s_addr = ::inet_addr(addr.c_str());
-	if (::connect(fd, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
+	if (::connect(fd, (const sockaddr *)&srv_addr, sizeof(srv_addr)) == 0)
+		return fd;
+	if (errno != EINPROGRESS)
+		return -1;
+	if (wait_for_tcp_connect(fd))
+		return fd;
+	std::cerr << "connect() " << strerror(errno) << std::endl;
+		return -1;
+}
+
+/*
+inline int server_socket_udpm(int port)
+{
+	int sock = socket();
+	if (sock == -1)
+		return -1;
+
+	sockaddr_in srv_addr;
+	::memset(&srv_addr, 0, sizeof(srv_addr));
+	srv_addr.sin_family = AF_INET;
+	srv_addr.sin_port = ::htons(port);
+	srv_addr.sin_addr.s_addr = ::htonl(INADDR_ANY);
+	if (::bind(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
+		std::cerr << "bind() " << strerror(errno) << std::endl;;
+		return -1;
+	}
+	if (::listen(sock, 1024) < 0) {
+		std::cerr << "listen() " << strerror(errno) << std::endl;;
+		return -1;
+	}
+	return sock;
+}
+inline int client_socket_udmp(const std::string & addr, int port)
+{
+	int sock = socket();
+	if (sock == -1)
+		return -1;
+
+	sockaddr_in srv_addr;
+	::memset(&srv_addr, 0, sizeof(srv_addr));
+	srv_addr.sin_family = AF_INET;
+	srv_addr.sin_port = ::htons(port);
+	srv_addr.sin_addr.s_addr = ::inet_addr(addr.c_str());
+	if (::connect(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
 		std::cerr << "connect() " << strerror(errno) << std::endl;;
 		return -1;
 	}
-	return fd;
+	return sock;
 }
-
+*/
 template<typename MsgT>
 struct peer
 {
@@ -138,7 +200,11 @@ struct peer
 
 	static std::shared_ptr<peer> connect(const utttil::url & url)
 	{
-		int fd = client_socket(url.host.c_str(), std::stoull(url.port));
+		int fd = -1;
+		if (url.protocol == "tcp")
+			fd = client_socket_tcp(url.host.c_str(), std::stoull(url.port));
+		//else if (url.protocol == "udpm")
+		//	fd = client_socket_udpm(url.host.c_str(), std::stoull(url.port));
 		if (fd == -1) {
 			std::cout << "client_socket() failed" << std::endl;
 			return nullptr;
@@ -147,7 +213,11 @@ struct peer
 	}
 	static std::shared_ptr<peer> bind(const utttil::url & url)
 	{
-		int fd = server_socket(std::stoull(url.port));
+		int fd = -1;
+		if (url.protocol == "tcp")
+			fd = server_socket_tcp(std::stoull(url.port));
+		//else if (url.protocol == "udpm")
+		//	fd = server_socket_udpm(std::stoull(url.port));
 		if (fd == -1) {
 			std::cout << "server_socket() failed" << std::endl;
 			return nullptr;
@@ -157,21 +227,20 @@ struct peer
 
 	std::shared_ptr<peer<MsgT>> accept()
 	{
-		std::cout << "peer accept()" << std::endl;
 		int new_fd = ::accept4(fd, (sockaddr*) &accept_client_addr, &client_addr_len, SOCK_NONBLOCK);
-		if (set_non_blocking(new_fd) < 0)
-		{
-			::close(new_fd);
-			return nullptr;
-		}
 		if (new_fd == -1)
 		{
-			if (errno != 0) {
+			if (errno != 0 && errno != EAGAIN) {
 				std::cout << "accept() good = false because of errno: " << errno << std::endl;
 				good_ = false;
 			}
 			return nullptr;
 		}
+		//if (set_non_blocking(new_fd) < 0)
+		//{
+		//	::close(new_fd);
+		//	return nullptr;
+		//}
 		auto new_peer_sptr = std::make_shared<peer<MsgT>>(new_fd);
 		return new_peer_sptr;
 	}
@@ -199,7 +268,7 @@ struct peer
 		//for(const char *ptr = std::get<0>(stretch), *end=ptr+std::get<1>(stretch) ; ptr<end ; ptr++)
 		//	std::cout << (unsigned int)*ptr << ' ';
 		//std::cout << std::endl << std::dec;
-		int count = ::write(fd, std::get<0>(stretch), std::get<1>(stretch));
+		int count = ::sendto(fd, std::get<0>(stretch), std::get<1>(stretch), 0, nullptr, 0);
 		if (count > 0) {
 			//std::cout << "wrote " << count << std::endl;
 			outbox.advance_front(count);
@@ -290,7 +359,7 @@ struct peer
 				break;
 			}
 			total_size = msg_size + deserializer.read.size();
-			assert(msg_size == 45);
+			//assert(msg_size == 45);
 			if (total_size > inbox.size()) {
 				break;
 			}
@@ -389,9 +458,6 @@ struct context
 
 	std::shared_ptr<peer<MsgT>> bind(const utttil::url url)
 	{
-		if (url.protocol != "tcp")
-			return nullptr;
-
 		std::shared_ptr<peer<MsgT>> peer_sptr = peer<MsgT>::bind(url);
 		if ( ! peer_sptr)
 		{
@@ -405,9 +471,6 @@ struct context
 
 	std::shared_ptr<peer<MsgT>> connect(const utttil::url url)
 	{
-		if (url.protocol != "tcp")
-			return nullptr;
-
 		std::shared_ptr<peer<MsgT>> peer_sptr = peer<MsgT>::connect(url);
 		if ( ! peer_sptr)
 			return nullptr;
@@ -428,7 +491,6 @@ struct context
 			}
 			for(int i=accept_peers.size()-1 ; i>=0 ; i--)
 			{
-				std::cout << "accept()" << std::endl;
 				std::shared_ptr<peer<MsgT>> & peer_sptr = accept_peers[i];
 				auto new_peer_sptr = peer_sptr->accept();
 				if ( ! new_peer_sptr)

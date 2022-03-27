@@ -70,9 +70,6 @@ struct context
 
 	std::shared_ptr<peer<MsgT>> bind(const utttil::url url)
 	{
-		if (url.protocol != "tcp")
-			return nullptr;
-
 		std::shared_ptr<peer<MsgT>> peer_sptr = peer<MsgT>::bind(next_id++, ring, url);
 		if ( ! peer_sptr)
 			return nullptr;
@@ -83,13 +80,9 @@ struct context
 
 	std::shared_ptr<peer<MsgT>> connect(const utttil::url url)
 	{
-		if (url.protocol != "tcp")
-			return nullptr;
-
 		std::shared_ptr<peer<MsgT>> peer_sptr = peer<MsgT>::connect(next_id++, ring, url);
 		if ( ! peer_sptr)
 			return nullptr;
-
 		peers[peer_sptr->id] = peer_sptr;
 		peer_sptr->read_loop();
 		peer_sptr->write_loop();

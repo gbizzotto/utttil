@@ -6,15 +6,17 @@
 #include <atomic>
 #include <chrono>
 
-#include <utttil/iou.hpp>
+#include <utttil/io.hpp>
 #include <utttil/assert.hpp>
 
 #include "msg.hpp"
 
 int main()
 {
-	utttil::iou::context<Request> ctx;
-	ctx.run();
+	utttil::io::context<Request> ctx;
+	//ctx.run();
+	ctx.start_accept();
+	ctx.start_read();
 	//ctx.start_write();	
 	auto server_sptr = ctx.bind(utttil::url("tcp://127.0.0.1:1234"));
 	if ( ! server_sptr)

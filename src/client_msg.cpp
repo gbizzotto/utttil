@@ -4,7 +4,7 @@
 #include <string>
 #include <atomic>
 
-#include <utttil/iou.hpp>
+#include <utttil/io.hpp>
 #include <utttil/perf.hpp>
 
 #include "msg.hpp"
@@ -27,9 +27,11 @@ int main()
 	new_order.pic_count      = utttil::max<decltype(new_order.pic_count     )>();
 	new_order.stop_pic_count = utttil::max<decltype(new_order.stop_pic_count)>();
 
-	utttil::iou::context<Request> ctx;
-	//ctx.start_read();	
-	ctx.run();	
+	utttil::io::context<Request> ctx;
+	ctx.start_read();	
+	ctx.start_write();
+	//ctx.run();	
+
 	
 	std::cout << "context running" << std::endl;
 
@@ -58,6 +60,7 @@ int main()
 	}
 	sent_by_client.type = Request::Type::End;
 	client_sptr->async_send(sent_by_client);
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 	auto time_stop = std::chrono::high_resolution_clock::now();
 	auto elapsed = time_stop - time_start;
