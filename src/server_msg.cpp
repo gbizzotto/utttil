@@ -14,10 +14,8 @@
 int main()
 {
 	utttil::io::context<Request> ctx;
-	//ctx.run();
-	ctx.start_accept();
-	ctx.start_read();
-	//ctx.start_write();	
+	ctx.run();
+
 	auto server_sptr = ctx.bind(utttil::url("tcp://127.0.0.1:1234"));
 	if ( ! server_sptr)
 	{

@@ -168,7 +168,7 @@ struct ring_buffer
 					0
 				);
 		if ((back_ & Mask) > (front_ & Mask)) {
-			assert(back_ - front_ <= size());
+			assert(back_ - front_ <= capacity());
 			return std::make_tuple(
 					&data[front_ & Mask],
 					back_ - front_

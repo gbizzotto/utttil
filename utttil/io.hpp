@@ -12,6 +12,7 @@
 #include <vector>
 #include <memory>
 #include <thread>
+#include <string>
 
 #include <utttil/ring_buffer.hpp>
 #include <utttil/url.hpp>
@@ -20,7 +21,7 @@
 namespace utttil {
 namespace io {
 
-/*
+
 inline int set_non_blocking(int fd)
 {
 	int flags = ::fcntl(fd, F_GETFL, 0);
@@ -37,7 +38,6 @@ inline int set_non_blocking(int fd)
 	}
 	return 0;
 }
-*/
 
 inline int socket_tcp()
 {
@@ -61,7 +61,11 @@ inline int server_socket_tcp(int port)
 	int fd = socket_tcp();
 	if (fd == -1)
 		return -1;
-
+	if (set_non_blocking(fd) < 0)
+	{
+		::close(fd);
+		return -1;
+	}
 	sockaddr_in srv_addr;
 	::memset(&srv_addr, 0, sizeof(srv_addr));
 	srv_addr.sin_family = AF_INET;
@@ -77,14 +81,17 @@ inline int server_socket_tcp(int port)
 	}
 	return fd;
 }
-bool wait_for_tcp_connect(int fd)
+/*
+bool wait_for_tcp_connect(int fd, size_t deadline_ms)
 {
 	socklen_t optlen;
 	int optval;
-	for (;;)
+	for ( auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms)
+		; std::chrono::steady_clock::now() < deadline
+		; )
 	{
 		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == -1)
-			std::cout << "getsockopt error" << std::endl;
+			std::cout << "getsockopt error " << strerror(errno) << std::endl;
 		if (optval == 0)
 			return true;
 		if (optval != EINPROGRESS)
@@ -93,7 +100,9 @@ bool wait_for_tcp_connect(int fd)
 			return false;
 		}
 	}
+	return false;
 }
+*/
 inline int client_socket_tcp(const std::string & addr, int port)
 {
 	int fd = socket_tcp();
@@ -107,54 +116,77 @@ inline int client_socket_tcp(const std::string & addr, int port)
 	srv_addr.sin_addr.s_addr = ::inet_addr(addr.c_str());
 	if (::connect(fd, (const sockaddr *)&srv_addr, sizeof(srv_addr)) == 0)
 		return fd;
-	if (errno != EINPROGRESS)
-		return -1;
-	if (wait_for_tcp_connect(fd))
-		return fd;
-	std::cerr << "connect() " << strerror(errno) << std::endl;
-		return -1;
-}
-
-/*
-inline int server_socket_udpm(int port)
-{
-	int sock = socket();
-	if (sock == -1)
-		return -1;
-
-	sockaddr_in srv_addr;
-	::memset(&srv_addr, 0, sizeof(srv_addr));
-	srv_addr.sin_family = AF_INET;
-	srv_addr.sin_port = ::htons(port);
-	srv_addr.sin_addr.s_addr = ::htonl(INADDR_ANY);
-	if (::bind(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
-		std::cerr << "bind() " << strerror(errno) << std::endl;;
+	if (set_non_blocking(fd) < 0)
+	{
+		::close(fd);
 		return -1;
 	}
-	if (::listen(sock, 1024) < 0) {
-		std::cerr << "listen() " << strerror(errno) << std::endl;;
+	return fd;
+	//if (errno != EINPROGRESS)
+	//	return -1;
+	//if (wait_for_tcp_connect(fd, 1000))
+	//	return fd;
+	//std::cerr << "connect() " << strerror(errno) << std::endl;
+	//	return -1;
+}
+
+
+inline int socket_udp()
+{
+	int sock = ::socket(PF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+	if (sock == -1) {
+		std::cerr << "socket() " << ::strerror(errno) << std::endl;
+		return -1;
+	}
+	//if (set_non_blocking(sock) < 0)
+	//	return -1;
+	int enable = 1;
+	if (::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+		std::cerr << "setsockopt(SO_REUSEADDR) " << ::strerror(errno) << std::endl;
 		return -1;
 	}
 	return sock;
 }
-inline int client_socket_udmp(const std::string & addr, int port)
+inline int server_socket_udpm()
 {
-	int sock = socket();
+	int sock = socket_udp();
+	if (sock == -1)
+		return -1;
+	return sock;
+}
+inline int client_socket_udpm(const std::string & addr, int port)
+{
+	int sock = ::socket(PF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (sock == -1)
 		return -1;
 
-	sockaddr_in srv_addr;
-	::memset(&srv_addr, 0, sizeof(srv_addr));
-	srv_addr.sin_family = AF_INET;
-	srv_addr.sin_port = ::htons(port);
-	srv_addr.sin_addr.s_addr = ::inet_addr(addr.c_str());
-	if (::connect(sock, (const sockaddr *)&srv_addr, sizeof(srv_addr)) < 0) {
-		std::cerr << "connect() " << strerror(errno) << std::endl;;
+	sockaddr_in localSock = {};    // initialize to all zeroes
+	localSock.sin_family      = AF_INET;
+	localSock.sin_port        = htons(port);
+	localSock.sin_addr.s_addr = INADDR_ANY;
+	// Note from manpage that bind returns 0 on success
+	if (0 != bind(sock, (sockaddr*)&localSock, sizeof(localSock)))
+	{
+		std::cout << "udpm client bind failed: " << strerror(errno) << std::endl;
 		return -1;
 	}
+
+	// Join the multicast group on the local interface.  Note that this
+	//    IP_ADD_MEMBERSHIP option must be called for each local interface over
+	//    which the multicast datagrams are to be received.
+	ip_mreq group = {};    // initialize to all zeroes
+	group.imr_multiaddr.s_addr = inet_addr(addr.c_str());
+	group.imr_interface.s_addr = inet_addr("0.0.0.0");
+	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&group, sizeof(group)) < 0)
+	{
+		std::cout << "udpm setsockopt failed: " << strerror(errno) << std::endl;
+		return -1;
+	}
+
 	return sock;
 }
-*/
+
+
 template<typename MsgT>
 struct peer
 {
@@ -168,6 +200,9 @@ struct peer
 	utttil::ring_buffer<std::shared_ptr<peer>, accept_inbox_capacity_bits> accept_inbox;
 
 	// writer
+	sockaddr_in sendto_addr;
+	sockaddr_in *sendto_addr_ptr;
+	size_t sendto_addr_len;
 	inline static constexpr size_t outbox_capacity_bits = 16;
 	inline static constexpr size_t outbox_msg_capacity_bits = 10;
 	iovec write_iov[1];
@@ -175,16 +210,19 @@ struct peer
 	utttil::ring_buffer<MsgT, outbox_msg_capacity_bits> outbox_msg;
 
 	// reader
+	sockaddr_in recvfrom_addr;
+	sockaddr_in *recvfrom_addr_ptr;
+	size_t recvfrom_addr_len;
 	inline static constexpr size_t inbox_capacity_bits = 16;
 	inline static constexpr size_t inbox_msg_capacity_bits = 10;
 	iovec read_iov[1];
 	utttil::ring_buffer<char, inbox_capacity_bits> inbox;
 	utttil::ring_buffer<MsgT, inbox_msg_capacity_bits> inbox_msg;
 
-	utttil::ring_buffer<int,10> written;
-
 	peer(int fd_)
 		: fd(fd_)
+		, sendto_addr_ptr(nullptr)
+		, sendto_addr_len(0)
 	{}
 
 	void close()
@@ -203,8 +241,8 @@ struct peer
 		int fd = -1;
 		if (url.protocol == "tcp")
 			fd = client_socket_tcp(url.host.c_str(), std::stoull(url.port));
-		//else if (url.protocol == "udpm")
-		//	fd = client_socket_udpm(url.host.c_str(), std::stoull(url.port));
+		else if (url.protocol == "udpm")
+			fd = client_socket_udpm(url.host.c_str(), std::stoull(url.port));
 		if (fd == -1) {
 			std::cout << "client_socket() failed" << std::endl;
 			return nullptr;
@@ -216,8 +254,24 @@ struct peer
 		int fd = -1;
 		if (url.protocol == "tcp")
 			fd = server_socket_tcp(std::stoull(url.port));
-		//else if (url.protocol == "udpm")
-		//	fd = server_socket_udpm(std::stoull(url.port));
+		else if (url.protocol == "udpm")
+		{
+			fd = server_socket_udpm();
+			if (fd == -1) {
+				std::cout << "server_socket() failed" << std::endl;
+				return nullptr;
+			}
+			auto peer_sptr = std::make_shared<peer>(fd);
+			if ( ! peer_sptr)
+				return nullptr;
+		    memset(&peer_sptr->sendto_addr, 0, sizeof(peer_sptr->sendto_addr));
+		    peer_sptr->sendto_addr.sin_family = AF_INET;
+		    peer_sptr->sendto_addr.sin_addr.s_addr = inet_addr(url.host.c_str());
+		    peer_sptr->sendto_addr.sin_port = htons(std::stol(url.port));
+		    peer_sptr->sendto_addr_ptr = &peer_sptr->sendto_addr;
+		    peer_sptr->sendto_addr_len = sizeof(peer_sptr->sendto_addr);
+			return peer_sptr;
+		}
 		if (fd == -1) {
 			std::cout << "server_socket() failed" << std::endl;
 			return nullptr;
@@ -231,7 +285,7 @@ struct peer
 		if (new_fd == -1)
 		{
 			if (errno != 0 && errno != EAGAIN) {
-				std::cout << "accept() good = false because of errno: " << errno << std::endl;
+				std::cout << "accept() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 				good_ = false;
 			}
 			return nullptr;
@@ -241,8 +295,7 @@ struct peer
 		//	::close(new_fd);
 		//	return nullptr;
 		//}
-		auto new_peer_sptr = std::make_shared<peer<MsgT>>(new_fd);
-		return new_peer_sptr;
+		return std::make_shared<peer<MsgT>>(new_fd);
 	}
 	void print_outbox()
 	{
@@ -264,17 +317,18 @@ struct peer
 			return 0;
 		//print_outbox();
 		auto stretch = outbox.front_stretch();
+		std::get<1>(stretch) = std::min(1400ul, std::get<1>(stretch));
 		//std::cout << "Printint from outbox: " << std::hex;
 		//for(const char *ptr = std::get<0>(stretch), *end=ptr+std::get<1>(stretch) ; ptr<end ; ptr++)
 		//	std::cout << (unsigned int)*ptr << ' ';
 		//std::cout << std::endl << std::dec;
-		int count = ::sendto(fd, std::get<0>(stretch), std::get<1>(stretch), 0, nullptr, 0);
+		int count = ::sendto(fd, std::get<0>(stretch), std::get<1>(stretch), 0, (sockaddr*)sendto_addr_ptr, sendto_addr_len);
 		if (count > 0) {
 			//std::cout << "wrote " << count << std::endl;
 			outbox.advance_front(count);
 			//print_outbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "write() good = false because of errno: " << errno << std::endl;
+			std::cout << "sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			good_ = false;
 		}
 		return count;
@@ -311,7 +365,7 @@ struct peer
 			unpack();
 			//print_inbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "read() good = false because of errno: " << errno << std::endl;
+			std::cout << "read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			good_ = false;
 		}
 		return count;
@@ -419,35 +473,28 @@ struct context
 	std::thread tr;
 	std::thread tw;
 	std::atomic_bool go_on = true;
-	std::vector<std::shared_ptr<peer<MsgT>>> accept_peers;
-	std::vector<std::shared_ptr<peer<MsgT>>> read_peers;
-	std::vector<std::shared_ptr<peer<MsgT>>> write_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, 8> new_accept_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, 8> new_read_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, 8> new_write_peers;
 	size_t next_id = 1;
-
-	context()
-	{
-		accept_peers.reserve(100);
-		read_peers.reserve(100);
-		write_peers.reserve(100);
-	}
 
 	~context()
 	{
 		stop();
 	}
 
+	void run()
+	{
+		start_accept();
+		start_read  ();
+		start_write ();
+	}
 	void start_accept() { ta = std::thread([&](){ this->loop_accept(); }); }
 	void start_read  () { tr = std::thread([&](){ this->loop_read  (); }); }
 	void start_write () { tw = std::thread([&](){ this->loop_write (); }); }
 	void stop()
 	{
 		go_on = false;
-		for (auto & psptr : accept_peers)
-			psptr->close();
-		for (auto & psptr : read_peers)
-			psptr->close();
-		for (auto & psptr : write_peers)
-			psptr->close();
 		if (ta.joinable())
 			ta.join();
 		if (tr.joinable())
@@ -461,11 +508,14 @@ struct context
 		std::shared_ptr<peer<MsgT>> peer_sptr = peer<MsgT>::bind(url);
 		if ( ! peer_sptr)
 		{
-			std::cout << "biund failed" << std::endl;
+			std::cout << "bind failed" << std::endl;
 			return nullptr;
 		}
 		std::cout << "bound" << std::endl;
-		accept_peers.push_back(peer_sptr);
+		if (url.protocol == "tcp")
+			new_accept_peers.push_back(peer_sptr);
+		else if (url.protocol == "udpm")
+			new_write_peers.push_back(peer_sptr);
 		return peer_sptr;
 	}
 
@@ -475,15 +525,25 @@ struct context
 		if ( ! peer_sptr)
 			return nullptr;
 
-		read_peers .push_back(peer_sptr);
-		write_peers.push_back(peer_sptr);
+		if (url.protocol == "tcp") {
+			new_read_peers .push_back(peer_sptr);
+			new_write_peers.push_back(peer_sptr);
+		} else if (url.protocol == "udpm") {
+			new_read_peers .push_back(peer_sptr);
+		}
 		return peer_sptr;
 	}
 
 	void loop_accept()
 	{
+		std::vector<std::shared_ptr<peer<MsgT>>> accept_peers;
 		while(go_on)
 		{
+			while ( ! new_accept_peers.empty())
+			{
+				accept_peers.push_back(new_accept_peers.front());
+				new_accept_peers.pop_front();
+			}
 			if (accept_peers.empty())
 			{
 				_mm_pause();
@@ -491,7 +551,7 @@ struct context
 			}
 			for(int i=accept_peers.size()-1 ; i>=0 ; i--)
 			{
-				std::shared_ptr<peer<MsgT>> & peer_sptr = accept_peers[i];
+				std::shared_ptr<peer<MsgT>> peer_sptr = accept_peers[i];
 				auto new_peer_sptr = peer_sptr->accept();
 				if ( ! new_peer_sptr)
 				{
@@ -504,15 +564,21 @@ struct context
 				}
 				std::cout << "accepted" << std::endl;
 				peer_sptr->accept_inbox.push_back(new_peer_sptr);
-				read_peers .push_back(new_peer_sptr);
-				write_peers.push_back(new_peer_sptr);
+				new_read_peers .push_back(new_peer_sptr);
+				new_write_peers.push_back(new_peer_sptr);
 			}
 		}
 	}
 	void loop_read()
 	{
+		std::vector<std::shared_ptr<peer<MsgT>>> read_peers;
 		while(go_on)
 		{
+			while ( ! new_read_peers.empty())
+			{
+				read_peers.push_back(new_read_peers.front());
+				new_read_peers.pop_front();
+			}
 			if (read_peers.empty())
 			{
 				_mm_pause();
@@ -520,14 +586,14 @@ struct context
 			}
 			for(int i=read_peers.size()-1 ; i>=0 ; i--)
 			{
-				std::shared_ptr<peer<MsgT>> & peer_sptr = read_peers[i];
+				auto peer_sptr = read_peers[i];
 				size_t count = peer_sptr->read();
 				if (count < 0)
 				{
 					if ( ! peer_sptr->good())
 					{
 						std::cout << "erase read peer" << std::endl;
-						read_peers.erase(read_peers.begin()+i);
+						read_peers.erase(read_peers.begin()+i); // TODO swap with to end before erasing
 					}
 					continue;
 				}
@@ -536,8 +602,14 @@ struct context
 	}
 	void loop_write()
 	{
+		std::vector<std::shared_ptr<peer<MsgT>>> write_peers;
 		while(go_on)
 		{
+			while ( ! new_write_peers.empty())
+			{
+				write_peers.push_back(new_write_peers.front());
+				new_write_peers.pop_front();
+			}
 			if (write_peers.empty())
 			{
 				_mm_pause();
@@ -546,7 +618,7 @@ struct context
 			for(int i=write_peers.size()-1 ; i>=0 ; i--)
 			{
 				//std::cout << "write peer " << i << std::endl;
-				std::shared_ptr<peer<MsgT>> & peer_sptr = write_peers[i];
+				std::shared_ptr<peer<MsgT>> peer_sptr = write_peers[i];
 				size_t count = peer_sptr->write();
 				if (count < 0)
 				{
