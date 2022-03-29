@@ -49,7 +49,7 @@ int main()
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
-		if (server_sptr->outbox_msg.full())
+		if (server_sptr->get_outbox_msg()->full())
 			continue;
 		//std::cout << "msg # " << msg_count << std::endl;
 		server_sptr->async_send(sent_by_server);

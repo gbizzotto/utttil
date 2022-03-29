@@ -78,7 +78,7 @@ int main()
 	return 0;
 
 
-
+/*
 	utttil::io::context<> ctx;
 	auto server_sptr = ctx.bind(utttil::url("tcp://127.0.0.1:1234"));
 	ctx.start_accept();
@@ -129,4 +129,5 @@ int main()
 	ctx.stop();
 
 	return 0;
+*/
 }

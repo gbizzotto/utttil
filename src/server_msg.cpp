@@ -24,13 +24,13 @@ int main()
 	}
 	std::cout << "server running" << std::endl;
 
-	auto server_client_sptr = server_sptr->accept_inbox.front();
+	auto server_client_sptr = server_sptr->get_accept_inbox()->front();
 	std::cout << "Accepted" << std::endl;
-	server_sptr->accept_inbox.pop_front();
+	server_sptr->get_accept_inbox()->pop_front();
 
 
 	std::cout << "Waiting for 1st msg" << std::endl;
-	server_client_sptr->inbox_msg.front();
+	server_client_sptr->get_inbox_msg()->front();
 	std::cout << "start timer" << std::endl;
 	size_t msgs = 0;
 	auto time_start = std::chrono::high_resolution_clock::now();
@@ -38,17 +38,17 @@ int main()
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
-		if (server_client_sptr->inbox_msg.empty())
+		if (server_client_sptr->get_inbox_msg()->empty())
 		{
 			_mm_pause();
 			continue;
 		}
-		auto & msg = server_client_sptr->inbox_msg.front();
+		auto & msg = server_client_sptr->get_inbox_msg()->front();
 		msgs++;
 		//std::cout << "msg # " << msgs << std::endl;
 		if (msg.type == Request::Type::End)
 			break;
-		server_client_sptr->inbox_msg.pop_front();
+		server_client_sptr->get_inbox_msg()->pop_front();
 
 		// reply
 		//std::vector<char> v(sent_by_server.begin(), sent_by_server.end());

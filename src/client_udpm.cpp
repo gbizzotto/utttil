@@ -29,13 +29,13 @@ int main()
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
-		if (clinet_sptr->inbox_msg.empty())
+		if (clinet_sptr->get_inbox_msg()->empty())
 		{
 			_mm_pause();
 			continue;
 		}
-		clinet_sptr->inbox_msg.front();
-		clinet_sptr->inbox_msg.pop_front();
+		clinet_sptr->get_inbox_msg()->front();
+		clinet_sptr->get_inbox_msg()->pop_front();
 		msgs++;
 	}
 	auto time_stop = std::chrono::high_resolution_clock::now();

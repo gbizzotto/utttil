@@ -62,7 +62,7 @@ int main()
 
 
 
-
+/*
 	const std::string sent_by_client = "32jk1hkjh1k3j4h62kj345h6345kljh345kj7h40";
 
 	utttil::io::context ctx;
@@ -109,5 +109,5 @@ int main()
 	ctx.stop();
 
 	return 0;
-
+*/
 }

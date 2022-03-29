@@ -23,11 +23,11 @@ bool test_2_ways(std::string url)
 	ctx.run();
 	std::cout << "Context running" << std::endl;
 
-	std::cout << "Sizeof(ctx): " << sizeof(ctx) << std::endl;
-
 	// server
 	auto server_sptr = ctx.bind(url);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	ASSERT_ACT(server_sptr, !=, nullptr, return false);
+	ASSERT_ACT(server_sptr->good(), ==, true, return false);
 	std::cout << "Bind done" << std::endl;
 
 	std::cout << "Sizeof(*server_sptr): " << sizeof(*server_sptr) << std::endl;
@@ -35,44 +35,44 @@ bool test_2_ways(std::string url)
 	// client
 	auto client_sptr = ctx.connect(url);
 	ASSERT_ACT(client_sptr, !=, nullptr, return false);
+	ASSERT_ACT(client_sptr->good(), ==, true, return false);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	std::cout << "Connect done" << std::endl;
 
 	std::cout << "Sizeof(*client_sptr): " << sizeof(*client_sptr) << std::endl;
 
-	while (server_sptr->accept_inbox.empty())
+	while (server_sptr->get_accept_inbox()->empty())
 		_mm_pause();
 	std::cout << "Accepted" << std::endl;
-	auto server_client_sptr = server_sptr->accept_inbox.front();
-	server_sptr->accept_inbox.pop_front();
+	auto server_client_sptr = server_sptr->get_accept_inbox()->front();
+	server_sptr->get_accept_inbox()->pop_front();
 	
 	std::cout << "Server_client_sptr->async_write " << sent_by_server.size() << std::endl;
 	server_client_sptr->async_write(sent_by_server.data(), sent_by_server.size());
 	std::cout << "Msg sent by server" << std::endl;
 
-	while (client_sptr->inbox.empty())
+	while (client_sptr->get_inbox()->empty())
 		_mm_pause();	
-	std::cout << "Msg rcvd by client with count bytes: " << client_sptr->inbox.size() << std::endl;
-	auto stretch_recv = client_sptr->inbox.front_stretch();
+	std::cout << "Msg rcvd by client with count bytes: " << client_sptr->get_inbox()->size() << std::endl;
+	auto stretch_recv = client_sptr->get_inbox()->front_stretch();
 	recv_by_client = std::string(std::get<0>(stretch_recv), std::get<1>(stretch_recv));
-	client_sptr->inbox.advance_front(std::get<1>(stretch_recv));
-	stretch_recv = client_sptr->inbox.front_stretch();
+	client_sptr->get_inbox()->advance_front(std::get<1>(stretch_recv));
+	stretch_recv = client_sptr->get_inbox()->front_stretch();
 	recv_by_client.append(std::string(std::get<0>(stretch_recv), std::get<1>(stretch_recv)));
-	client_sptr->inbox.advance_front(std::get<1>(stretch_recv));
+	client_sptr->get_inbox()->advance_front(std::get<1>(stretch_recv));
 	
 	client_sptr->async_write(sent_by_client.data(), sent_by_client.size());
 	std::cout << "Reply sent by client" << std::endl;
 
-	while (server_client_sptr->inbox.empty())
+	while (server_client_sptr->get_inbox()->empty())
 		_mm_pause();
-	std::cout << "Msg rcvd by server with count byte: " << server_client_sptr->inbox.size() << std::endl;
-	auto stretch = server_client_sptr->inbox.front_stretch();
+	std::cout << "Msg rcvd by server with count byte: " << server_client_sptr->get_inbox()->size() << std::endl;
+	auto stretch = server_client_sptr->get_inbox()->front_stretch();
 	recv_by_server = std::string(std::get<0>(stretch), std::get<1>(stretch));
-	server_client_sptr->inbox.advance_front(std::get<1>(stretch));
-	stretch = server_client_sptr->inbox.front_stretch();
+	server_client_sptr->get_inbox()->advance_front(std::get<1>(stretch));
+	stretch = server_client_sptr->get_inbox()->front_stretch();
 	recv_by_server.append(std::string(std::get<0>(stretch), std::get<1>(stretch)));
-	server_client_sptr->inbox.advance_front(std::get<1>(stretch));
-
+	server_client_sptr->get_inbox()->advance_front(std::get<1>(stretch));
 
 	ASSERT_ACT(recv_by_server, ==, sent_by_client, return false);
 	ASSERT_ACT(recv_by_client, ==, sent_by_server, return false);
@@ -104,15 +104,15 @@ bool test_srv_2_cli_udpm(std::string url)
 	server_sptr->async_write(sent_by_server.data(), sent_by_server.size());
 	std::cout << "msg sent by server" << std::endl;
 
-	while (client_sptr->inbox.empty())
+	while (client_sptr->get_inbox()->empty())
 		_mm_pause();	
-	std::cout << "msg rcvd by client with count bytes: " << client_sptr->inbox.size() << std::endl;
-	auto stretch_recv = client_sptr->inbox.front_stretch();
+	std::cout << "msg rcvd by client with count bytes: " << client_sptr->get_inbox()->size() << std::endl;
+	auto stretch_recv = client_sptr->get_inbox()->front_stretch();
 	recv_by_client = std::string(std::get<0>(stretch_recv), std::get<1>(stretch_recv));
-	client_sptr->inbox.advance_front(std::get<1>(stretch_recv));
-	stretch_recv = client_sptr->inbox.front_stretch();
+	client_sptr->get_inbox()->advance_front(std::get<1>(stretch_recv));
+	stretch_recv = client_sptr->get_inbox()->front_stretch();
 	recv_by_client.append(std::string(std::get<0>(stretch_recv), std::get<1>(stretch_recv)));
-	client_sptr->inbox.advance_front(std::get<1>(stretch_recv));
+	client_sptr->get_inbox()->advance_front(std::get<1>(stretch_recv));
 	
 	ASSERT_ACT(recv_by_client, ==, sent_by_server, return false);
 	
@@ -182,11 +182,11 @@ bool test_2_ways_msg(std::string url)
 
 	for (;;)
 	{
-		if ( ! server_sptr->accept_inbox.empty())
+		if ( ! server_sptr->get_accept_inbox()->empty())
 		{
 			std::cout << "Accepted" << std::endl;
-			server_client_sptr = server_sptr->accept_inbox.front();
-			server_sptr->accept_inbox.pop_front();
+			server_client_sptr = server_sptr->get_accept_inbox()->front();
+			server_sptr->get_accept_inbox()->pop_front();
 			break;
 		}
 	}
@@ -196,12 +196,12 @@ bool test_2_ways_msg(std::string url)
 
 	for (;;)
 	{
-		if ( ! server_client_sptr->inbox_msg.empty())
+		if ( ! server_client_sptr->get_inbox_msg()->empty())
 		{
 			std::cout << "msg rcvd by server" << std::endl;
-			Request & data = server_client_sptr->inbox_msg.front();
+			Request & data = server_client_sptr->get_inbox_msg()->front();
 			recv_by_server = data;
-			server_client_sptr->inbox_msg.pop_front();
+			server_client_sptr->get_inbox_msg()->pop_front();
 
 			server_client_sptr->async_send(sent_by_server);
 			break;
@@ -213,12 +213,12 @@ bool test_2_ways_msg(std::string url)
 
 	for (;;)
 	{
-		if ( ! client_sptr->inbox_msg.empty())
+		if ( ! client_sptr->get_inbox_msg()->empty())
 		{
 			std::cout << "msg rcvd by client" << std::endl;
-			Request & data = client_sptr->inbox_msg.front();
+			Request & data = client_sptr->get_inbox_msg()->front();
 			recv_by_client = data;
-			client_sptr->inbox_msg.pop_front();
+			client_sptr->get_inbox_msg()->pop_front();
 			break;
 		}
 		_mm_pause();
@@ -234,9 +234,9 @@ int main()
 {
 	bool success = true
 		//&& test("ws://127.0.0.1:1234/")
-		&& test_srv_2_cli_udpm ("udpm://226.1.1.1:1000/")
-		&& test_2_ways    ( "tcp://127.0.0.1:1002/")
-		&& test_2_ways_msg( "tcp://127.0.0.1:1003/")
+		&& test_srv_2_cli_udpm ("udpm://226.1.1.1:2000/")
+		&& test_2_ways    ( "tcp://127.0.0.1:2002/")
+		&& test_2_ways_msg( "tcp://127.0.0.1:2003/")
 		;
 
 	return success?0:1;
