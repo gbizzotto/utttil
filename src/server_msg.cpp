@@ -13,7 +13,7 @@
 
 int main()
 {
-	utttil::io::context<Request> ctx;
+	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 
 	auto server_sptr = ctx.bind(utttil::url("tcp://127.0.0.1:1234"));

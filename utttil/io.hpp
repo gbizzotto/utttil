@@ -22,18 +22,16 @@
 namespace utttil {
 namespace io {
 
-template<typename MsgT=no_msg_t>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
 struct context
 {
-	using value_type = MsgT;
-
 	std::thread ta;
 	std::thread tr;
 	std::thread tw;
 	std::atomic_bool go_on = true;
-	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, 8> new_accept_peers;
-	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, 8> new_read_peers;
-	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, 8> new_write_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, 8> new_accept_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, 8> new_read_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, 8> new_write_peers;
 	size_t next_id = 1;
 
 	~context()
@@ -61,7 +59,7 @@ struct context
 			tw.join();
 	}
 
-	void add(std::shared_ptr<peer<MsgT>> peer_sptr)
+	void add(std::shared_ptr<peer<MsgIn,MsgOut>> peer_sptr)
 	{
 		if (peer_sptr->does_accept())
 			new_accept_peers.push_back(peer_sptr);
@@ -71,13 +69,13 @@ struct context
 			new_write_peers.push_back(peer_sptr);
 	}
 
-	std::shared_ptr<peer<MsgT>> bind(const utttil::url url)
+	std::shared_ptr<peer<MsgIn,MsgOut>> bind(const utttil::url url)
 	{
-		std::shared_ptr<peer<MsgT>> peer_sptr;
+		std::shared_ptr<peer<MsgIn,MsgOut>> peer_sptr;
 		if (url.protocol == "tcp")
-			peer_sptr = std::make_shared<tcp_server<MsgT>>(url);
+			peer_sptr = std::make_shared<tcp_server<MsgIn,MsgOut>>(url);
 		else if (url.protocol == "udpm")
-			peer_sptr = std::make_shared<udpm_server<MsgT>>(url);
+			peer_sptr = std::make_shared<udpm_server<MsgIn,MsgOut>>(url);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
 			std::cout << "bind failed" << std::endl;
@@ -88,13 +86,13 @@ struct context
 		return peer_sptr;
 	}
 
-	std::shared_ptr<peer<MsgT>> connect(const utttil::url url)
+	std::shared_ptr<peer<MsgIn,MsgOut>> connect(const utttil::url url)
 	{
-		std::shared_ptr<peer<MsgT>> peer_sptr;
+		std::shared_ptr<peer<MsgIn,MsgOut>> peer_sptr;
 		if (url.protocol == "tcp")
-			peer_sptr = std::make_shared<tcp_socket<MsgT>>(url);
+			peer_sptr = std::make_shared<tcp_socket<MsgIn,MsgOut>>(url);
 		else if (url.protocol == "udpm")
-			peer_sptr = std::make_shared<udpm_client<MsgT>>(url);
+			peer_sptr = std::make_shared<udpm_client<MsgIn,MsgOut>>(url);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
 			std::cout << "connect failed" << std::endl;
@@ -107,7 +105,7 @@ struct context
 
 	void loop_accept()
 	{
-		std::vector<std::shared_ptr<peer<MsgT>>> accept_peers;
+		std::vector<std::shared_ptr<peer<MsgIn,MsgOut>>> accept_peers;
 		while(go_on)
 		{
 			while ( ! new_accept_peers.empty())
@@ -122,7 +120,7 @@ struct context
 			}
 			for(int i=accept_peers.size()-1 ; i>=0 ; i--)
 			{
-				std::shared_ptr<peer<MsgT>> peer_sptr = accept_peers[i];
+				std::shared_ptr<peer<MsgIn,MsgOut>> peer_sptr = accept_peers[i];
 				auto new_peer_sptr = peer_sptr->accept();
 				if ( ! new_peer_sptr)
 					continue;
@@ -138,7 +136,7 @@ struct context
 	}
 	void loop_read()
 	{
-		std::vector<std::shared_ptr<peer<MsgT>>> read_peers;
+		std::vector<std::shared_ptr<peer<MsgIn,MsgOut>>> read_peers;
 		while(go_on)
 		{
 			while ( ! new_read_peers.empty())
@@ -169,7 +167,7 @@ struct context
 	}
 	void loop_write()
 	{
-		std::vector<std::shared_ptr<peer<MsgT>>> write_peers;
+		std::vector<std::shared_ptr<peer<MsgIn,MsgOut>>> write_peers;
 		while(go_on)
 		{
 			while ( ! new_write_peers.empty())
@@ -185,7 +183,7 @@ struct context
 			for(int i=write_peers.size()-1 ; i>=0 ; i--)
 			{
 				//std::cout << "write peer " << i << std::endl;
-				std::shared_ptr<peer<MsgT>> peer_sptr = write_peers[i];
+				std::shared_ptr<peer<MsgIn,MsgOut>> peer_sptr = write_peers[i];
 				size_t count = peer_sptr->write();
 				if (count < 0)
 				{

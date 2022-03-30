@@ -99,27 +99,27 @@ inline int client_socket_tcp(const std::string & addr, int port)
 }
 
 
-template<typename MsgT>
-struct tcp_socket : peer<MsgT>
+template<typename MsgIn, typename MsgOut>
+struct tcp_socket : peer<MsgIn,MsgOut>
 {
 	// writer
 	sockaddr_in sendto_addr;
 	sockaddr_in *sendto_addr_ptr;
 	size_t sendto_addr_len;
 	iovec write_iov[1];
-	utttil::ring_buffer<char, peer<MsgT>::outbox_capacity_bits> outbox;
-	utttil::ring_buffer<MsgT, peer<MsgT>::outbox_msg_capacity_bits> outbox_msg;
+	utttil::ring_buffer<char  , peer<MsgIn,MsgOut>::outbox_capacity_bits> outbox;
+	utttil::ring_buffer<MsgOut, peer<MsgIn,MsgOut>::outbox_msg_capacity_bits> outbox_msg;
 
 	// reader
 	sockaddr_in recvfrom_addr;
 	sockaddr_in *recvfrom_addr_ptr;
 	size_t recvfrom_addr_len;
 	iovec read_iov[1];
-	utttil::ring_buffer<char, peer<MsgT>::inbox_capacity_bits> inbox;
-	utttil::ring_buffer<MsgT, peer<MsgT>::inbox_msg_capacity_bits> inbox_msg;
+	utttil::ring_buffer<char , peer<MsgIn,MsgOut>::inbox_capacity_bits> inbox;
+	utttil::ring_buffer<MsgIn, peer<MsgIn,MsgOut>::inbox_msg_capacity_bits> inbox_msg;
 
 	tcp_socket(int fd_)
-		: peer<MsgT>(fd_)
+		: peer<MsgIn,MsgOut>(fd_)
 		, sendto_addr_ptr(nullptr)
 		, sendto_addr_len(0)
 	{}
@@ -131,10 +131,10 @@ struct tcp_socket : peer<MsgT>
 	bool does_read  () override { return true ; }
 	bool does_write () override { return true ; }
 
-	utttil::ring_buffer<char, peer<MsgT>::      outbox_capacity_bits> * get_outbox      () override { return &outbox    ; }
-	utttil::ring_buffer<MsgT, peer<MsgT>::  outbox_msg_capacity_bits> * get_outbox_msg  () override { return &outbox_msg; }
-	utttil::ring_buffer<char, peer<MsgT>::       inbox_capacity_bits> * get_inbox       () override { return &inbox    ; }
-	utttil::ring_buffer<MsgT, peer<MsgT>::   inbox_msg_capacity_bits> * get_inbox_msg   () override { return &inbox_msg; }
+	utttil::ring_buffer<char  , peer<MsgIn,MsgOut>::      outbox_capacity_bits> * get_outbox      () override { return &outbox    ; }
+	utttil::ring_buffer<MsgOut, peer<MsgIn,MsgOut>::  outbox_msg_capacity_bits> * get_outbox_msg  () override { return &outbox_msg; }
+	utttil::ring_buffer<char  , peer<MsgIn,MsgOut>::       inbox_capacity_bits> * get_inbox       () override { return &inbox    ; }
+	utttil::ring_buffer<MsgIn , peer<MsgIn,MsgOut>::   inbox_msg_capacity_bits> * get_inbox_msg   () override { return &inbox_msg; }
 
 	size_t write() override
 	{
@@ -186,7 +186,7 @@ struct tcp_socket : peer<MsgT>
 	{
 		while ( ! outbox_msg.empty())
 		{
-			MsgT & msg = outbox_msg.front();
+			MsgOut & msg = outbox_msg.front();
 
 			auto size_preview_serializer = utttil::srlz::to_binary(utttil::srlz::device::null_writer());
 			size_preview_serializer << msg;
@@ -228,7 +228,7 @@ struct tcp_socket : peer<MsgT>
 			if (total_size > inbox.size()) {
 				break;
 			}
-			MsgT & msg = inbox_msg.back();
+			MsgIn & msg = inbox_msg.back();
 			try {
 				deserializer >> msg;
 			} catch (utttil::srlz::device::stream_end_exception &) {
@@ -263,35 +263,35 @@ struct tcp_socket : peer<MsgT>
 		}
 		//std::cout << "async_write: " << data.size() << std::endl;
 	}
-	void async_send(const MsgT & msg) override
+	void async_send(const MsgOut & msg) override
 	{
 		outbox_msg.push_back(msg);
 	}
-	void async_send(MsgT && msg) override
+	void async_send(MsgOut && msg) override
 	{
 		outbox_msg.push_back(std::move(msg));
 	}
 };
 
-template<typename MsgT=no_msg_t>
-struct tcp_server : peer<MsgT>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
+struct tcp_server : peer<MsgIn,MsgOut>
 {
 	// acceptor
 	sockaddr_in accept_client_addr;
 	socklen_t client_addr_len = sizeof(sockaddr_in);
-	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, peer<MsgT>::accept_inbox_capacity_bits> accept_inbox;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, peer<MsgIn,MsgOut>::accept_inbox_capacity_bits> accept_inbox;
 
 	tcp_server(const utttil::url & url)
-		: peer<MsgT>(server_socket_tcp(std::stoull(url.port)))
+		: peer<MsgIn,MsgOut>(server_socket_tcp(std::stoull(url.port)))
 	{}
 
 	bool does_accept() override { return true ; }
 	bool does_read  () override { return false; }
 	bool does_write () override { return false; }
 
-	utttil::ring_buffer<std::shared_ptr<peer<MsgT>>, peer<MsgT>::accept_inbox_capacity_bits> * get_accept_inbox() override { return &accept_inbox; }
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, peer<MsgIn,MsgOut>::accept_inbox_capacity_bits> * get_accept_inbox() override { return &accept_inbox; }
 
-	std::shared_ptr<peer<MsgT>> accept() override
+	std::shared_ptr<peer<MsgIn,MsgOut>> accept() override
 	{
 		int new_fd = ::accept4(this->fd, (sockaddr*) &accept_client_addr, &client_addr_len, SOCK_NONBLOCK);
 		if (new_fd == -1)
@@ -302,7 +302,7 @@ struct tcp_server : peer<MsgT>
 			}
 			return nullptr;
 		}
-		auto new_peer_sptr = std::make_shared<tcp_socket<MsgT>>(new_fd);
+		auto new_peer_sptr = std::make_shared<tcp_socket<MsgIn,MsgOut>>(new_fd);
 		accept_inbox.push_back(new_peer_sptr);
 		return new_peer_sptr;
 	}

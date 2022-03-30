@@ -85,7 +85,7 @@ bool test_srv_2_cli_udpm(std::string url)
 	std::string sent_by_server = "4322431423412412412341243213";
 	std::string recv_by_client;
 
-	utttil::io::context ctx;
+	utttil::io::context<std::string,std::string> ctx;
 	ctx.run();
 	std::cout << "context running" << std::endl;
 
@@ -100,19 +100,14 @@ bool test_srv_2_cli_udpm(std::string url)
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	std::cout << "connect done" << std::endl;
 
-	std::cout << "server_sptr->async_write " << sent_by_server.size() << std::endl;
-	server_sptr->async_write(sent_by_server.data(), sent_by_server.size());
+	std::cout << "server_sptr->async_send " << sent_by_server.size() << std::endl;
+	server_sptr->async_send(sent_by_server);
 	std::cout << "msg sent by server" << std::endl;
 
-	while (client_sptr->get_inbox()->empty())
+	while (client_sptr->get_inbox_msg()->empty())
 		_mm_pause();	
-	std::cout << "msg rcvd by client with count bytes: " << client_sptr->get_inbox()->size() << std::endl;
-	auto stretch_recv = client_sptr->get_inbox()->front_stretch();
-	recv_by_client = std::string(std::get<0>(stretch_recv), std::get<1>(stretch_recv));
-	client_sptr->get_inbox()->advance_front(std::get<1>(stretch_recv));
-	stretch_recv = client_sptr->get_inbox()->front_stretch();
-	recv_by_client.append(std::string(std::get<0>(stretch_recv), std::get<1>(stretch_recv)));
-	client_sptr->get_inbox()->advance_front(std::get<1>(stretch_recv));
+	std::cout << "msg rcvd by client" << std::endl;
+	recv_by_client = client_sptr->get_inbox_msg()->front();
 	
 	ASSERT_ACT(recv_by_client, ==, sent_by_server, return false);
 	
@@ -156,7 +151,7 @@ bool test_2_ways_msg(std::string url)
 	Request recv_by_client;
 	Request recv_by_server;
 
-	utttil::io::context<Request> ctx;
+	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 	
 	std::cout << "context running" << std::endl;
@@ -178,7 +173,7 @@ bool test_2_ways_msg(std::string url)
 
 	std::cout << "connect done" << std::endl;
 
-	std::shared_ptr<utttil::io::peer<Request>> server_client_sptr;
+	std::shared_ptr<utttil::io::peer<Request,Request>> server_client_sptr;
 
 	for (;;)
 	{

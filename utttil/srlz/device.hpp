@@ -81,13 +81,16 @@ struct mmap_writer
 struct ptr_reader
 {
 	char * c;
+	char * begin_ptr;
 	inline ptr_reader(char * c)
 		: c(c)
+		, begin_ptr(c)
 	{}
 	inline char operator()()
 	{
 		return *c++;
 	}
+	inline size_t size() const { return std::distance(begin_ptr, c); }
 };
 struct ptr_writer
 {

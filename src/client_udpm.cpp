@@ -12,30 +12,41 @@
 
 int main()
 {
-	utttil::io::context<Request> ctx;
+	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 
-	auto clinet_sptr = ctx.connect(utttil::url("udpm://226.1.1.1:1234"));
-	if ( ! clinet_sptr)
+	auto client_sptr = ctx.connect(utttil::url("udpm://226.1.1.1:1234"));
+	if ( ! client_sptr)
 	{
 		std::cerr << "Couldnt connect" << std::endl;
 		return 1;
 	}
 	std::cout << "client connected" << std::endl;
 
+	seq_t next_seq(0);
 	size_t msgs = 0;
 	auto time_start = std::chrono::high_resolution_clock::now();
 	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(12)
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
-		if (clinet_sptr->get_inbox_msg()->empty())
+		if (client_sptr->get_inbox_msg()->empty())
 		{
 			_mm_pause();
 			continue;
 		}
-		clinet_sptr->get_inbox_msg()->front();
-		clinet_sptr->get_inbox_msg()->pop_front();
+		Request & req = client_sptr->get_inbox_msg()->front();
+		if (next_seq < req.seq) {
+			std::cout << "Gap " << next_seq << " - " << req.seq << std::endl;
+			next_seq = req.seq;
+			++next_seq;
+		} else if (req.seq < next_seq) {
+			std::cout << "Old " << next_seq << " - " << req.seq << std::endl;
+		} else {
+			next_seq = req.seq;
+			++next_seq;
+		}
+		client_sptr->get_inbox_msg()->pop_front();
 		msgs++;
 	}
 	auto time_stop = std::chrono::high_resolution_clock::now();

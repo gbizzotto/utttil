@@ -27,7 +27,7 @@ int main()
 	new_order.pic_count      = utttil::max<decltype(new_order.pic_count     )>();
 	new_order.stop_pic_count = utttil::max<decltype(new_order.stop_pic_count)>();
 
-	utttil::io::context<Request> ctx;
+	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 	
 	std::cout << "context running" << std::endl;

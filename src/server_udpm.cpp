@@ -10,11 +10,12 @@
 
 #include "msg.hpp"
 
-int main()
+void prepare_request(Request & sent_by_server)
 {
-	Request sent_by_server;
+	static decltype(sent_by_server.seq) next_seq(0);
+
 	sent_by_server.type = Request::Type::NewOrder;
-	sent_by_server.seq        = utttil::max<decltype(sent_by_server.seq)>();
+	sent_by_server.seq        = next_seq++;
 	sent_by_server.account_id = utttil::max<decltype(sent_by_server.account_id)>();
 	sent_by_server.req_id     = utttil::max<decltype(sent_by_server.req_id)>();
 	NewOrder &new_order = sent_by_server.new_order;
@@ -27,10 +28,11 @@ int main()
 	new_order.lot_count      = utttil::max<decltype(new_order.lot_count     )>();
 	new_order.pic_count      = utttil::max<decltype(new_order.pic_count     )>();
 	new_order.stop_pic_count = utttil::max<decltype(new_order.stop_pic_count)>();
+}
 
-
-
-	utttil::io::context<Request> ctx;
+int main()
+{
+	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 
 	auto server_sptr = ctx.bind(utttil::url("udpm://226.1.1.1:1234"));
@@ -49,10 +51,9 @@ int main()
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
-		if (server_sptr->get_outbox_msg()->full())
-			continue;
-		//std::cout << "msg # " << msg_count << std::endl;
-		server_sptr->async_send(sent_by_server);
+		Request & req = server_sptr->get_outbox_msg()->back();
+		prepare_request(req);
+		server_sptr->get_outbox_msg()->advance_back(1);
 		msg_count++;
 	}
 
