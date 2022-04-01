@@ -27,13 +27,13 @@ int main()
 	new_order.pic_count      = utttil::max<decltype(new_order.pic_count     )>();
 	new_order.stop_pic_count = utttil::max<decltype(new_order.stop_pic_count)>();
 
-	utttil::io::context<Request,Request> ctx;
+	utttil::io::context ctx;
 	ctx.run();
 	
 	std::cout << "context running" << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect_msg(utttil::url("tcp://127.0.0.1:1234"));
+	auto client_sptr = ctx.connect_msg<Request,Request>(utttil::url("tcp://127.0.0.1:1234"));
 	if ( ! client_sptr)
 	{
 		std::cerr << "Couldnt connect" << std::endl;

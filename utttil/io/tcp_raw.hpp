@@ -227,7 +227,7 @@ struct tcp_server_raw : peer_raw
 
 	utttil::ring_buffer<std::shared_ptr<peer_raw>> * get_accept_inbox() override { return &accept_inbox; }
 
-	std::shared_ptr<peer_raw> accept() override
+	std::shared_ptr<peer> accept() override
 	{
 		int new_fd = ::accept4(this->fd, (sockaddr*) &accept_client_addr, &client_addr_len, SOCK_NONBLOCK);
 		if (new_fd == -1)

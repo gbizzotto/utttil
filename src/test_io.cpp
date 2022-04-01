@@ -85,19 +85,19 @@ bool test_srv_2_cli_udpm(std::string url)
 	std::string sent_by_server = "4322431423412412412341243213";
 	std::string recv_by_client;
 
-	utttil::io::context<std::string,std::string> ctx;
+	utttil::io::context ctx;
 	ctx.run();
 	std::cout << "context running" << std::endl;
 
 	// server
-	auto server_sptr = ctx.bind_msg(url);
+	auto server_sptr = ctx.bind_msg<std::string,std::string>(url);
 	ASSERT_ACT(server_sptr, !=, nullptr, return false);
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	std::cout << "bind done" << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect_msg(url);
+	auto client_sptr = ctx.connect_msg<std::string,std::string>(url);
 	ASSERT_ACT(client_sptr, !=, nullptr, return false);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	std::cout << "connect done" << std::endl;
@@ -153,13 +153,13 @@ bool test_2_ways_msg(std::string url)
 	Request recv_by_client;
 	Request recv_by_server;
 
-	utttil::io::context<Request,Request> ctx;
+	utttil::io::context ctx;
 	ctx.run();
 	
 	std::cout << "context running" << std::endl;
 
 	// server
-	auto server_sptr = ctx.bind_msg(url);
+	auto server_sptr = ctx.bind_msg<Request,Request>(url);
 	if ( !server_sptr)
 	{
 		std::cerr << "bind failed" << std::endl;
@@ -170,7 +170,7 @@ bool test_2_ways_msg(std::string url)
 	std::cout << "bind done" << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect_msg(url);
+	auto client_sptr = ctx.connect_msg<Request,Request>(url);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	std::cout << "connect done" << std::endl;

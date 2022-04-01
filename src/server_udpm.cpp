@@ -32,10 +32,10 @@ void prepare_request(Request & sent_by_server)
 
 int main()
 {
-	utttil::io::context<Request,Request> ctx;
+	utttil::io::context ctx;
 	ctx.run();
 
-	auto server_sptr = ctx.bind_msg(utttil::url("udpm://226.1.1.1:1234"));
+	auto server_sptr = ctx.bind_msg<Request,Request>(utttil::url("udpm://226.1.1.1:1234"));
 	if ( ! server_sptr)
 	{
 		std::cerr << "Couldnt bind" << std::endl;

@@ -155,9 +155,9 @@ struct tcp_server_msg : peer_msg<MsgIn,MsgOut>
 
 	utttil::ring_buffer<std::shared_ptr<peer_msg<MsgIn,MsgOut>>> * get_accept_inbox() override { return &accept_inbox; }
 
-	std::shared_ptr<peer_msg<MsgIn,MsgOut>> accept() override
+	std::shared_ptr<peer> accept() override
 	{
-		std::shared_ptr<peer_raw> new_raw_peer = raw.accept();
+		std::shared_ptr<peer> new_raw_peer = raw.accept();
 		if ( ! new_raw_peer)
 			return nullptr;
 		auto new_tcp_socket = std::dynamic_pointer_cast<tcp_socket_raw>(new_raw_peer);
