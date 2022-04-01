@@ -33,7 +33,7 @@ int main()
 	std::cout << "context running" << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect(utttil::url("tcp://127.0.0.1:1234"));
+	auto client_sptr = ctx.connect_msg(utttil::url("tcp://127.0.0.1:1234"));
 	if ( ! client_sptr)
 	{
 		std::cerr << "Couldnt connect" << std::endl;

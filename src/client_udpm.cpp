@@ -15,7 +15,7 @@ int main()
 	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 
-	auto client_sptr = ctx.connect(utttil::url("udpm://226.1.1.1:1234"));
+	auto client_sptr = ctx.connect_msg(utttil::url("udpm://226.1.1.1:1234"));
 	if ( ! client_sptr)
 	{
 		std::cerr << "Couldnt connect" << std::endl;

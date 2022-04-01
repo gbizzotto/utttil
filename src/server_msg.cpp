@@ -16,7 +16,7 @@ int main()
 	utttil::io::context<Request,Request> ctx;
 	ctx.run();
 
-	auto server_sptr = ctx.bind(utttil::url("tcp://127.0.0.1:1234"));
+	auto server_sptr = ctx.bind_msg(utttil::url("tcp://127.0.0.1:1234"));
 	if ( ! server_sptr)
 	{
 		std::cerr << "Couldnt bind" << std::endl;

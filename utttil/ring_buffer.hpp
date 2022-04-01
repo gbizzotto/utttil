@@ -24,6 +24,13 @@ struct ring_buffer
 		, Mask(Capacity - 1)
 		, data(std::make_unique<T[]>(Capacity))
 	{}
+	ring_buffer(ring_buffer && other)
+		: Capacity(other.Capacity)
+		, Mask    (other.Mask    )
+		, data    (std::move(other.data))
+		, front_  (other.front_.load())
+		, back_   (other.back_ .load())
+	{}
 
 	struct iterator
 	{

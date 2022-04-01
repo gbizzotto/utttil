@@ -24,7 +24,7 @@ bool test_2_ways(std::string url)
 	std::cout << "Context running" << std::endl;
 
 	// server
-	auto server_sptr = ctx.bind(url);
+	auto server_sptr = ctx.bind_raw(url);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	ASSERT_ACT(server_sptr, !=, nullptr, return false);
 	ASSERT_ACT(server_sptr->good(), ==, true, return false);
@@ -33,7 +33,7 @@ bool test_2_ways(std::string url)
 	std::cout << "Sizeof(*server_sptr): " << sizeof(*server_sptr) << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect(url);
+	auto client_sptr = ctx.connect_raw(url);
 	ASSERT_ACT(client_sptr, !=, nullptr, return false);
 	ASSERT_ACT(client_sptr->good(), ==, true, return false);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -90,12 +90,14 @@ bool test_srv_2_cli_udpm(std::string url)
 	std::cout << "context running" << std::endl;
 
 	// server
-	auto server_sptr = ctx.bind(url);
+	auto server_sptr = ctx.bind_msg(url);
+	ASSERT_ACT(server_sptr, !=, nullptr, return false);
+
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	std::cout << "bind done" << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect(url);
+	auto client_sptr = ctx.connect_msg(url);
 	ASSERT_ACT(client_sptr, !=, nullptr, return false);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	std::cout << "connect done" << std::endl;
@@ -157,7 +159,7 @@ bool test_2_ways_msg(std::string url)
 	std::cout << "context running" << std::endl;
 
 	// server
-	auto server_sptr = ctx.bind(url);
+	auto server_sptr = ctx.bind_msg(url);
 	if ( !server_sptr)
 	{
 		std::cerr << "bind failed" << std::endl;
@@ -168,12 +170,12 @@ bool test_2_ways_msg(std::string url)
 	std::cout << "bind done" << std::endl;
 
 	// client
-	auto client_sptr = ctx.connect(url);
+	auto client_sptr = ctx.connect_msg(url);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	std::cout << "connect done" << std::endl;
 
-	std::shared_ptr<utttil::io::peer<Request,Request>> server_client_sptr;
+	std::shared_ptr<utttil::io::peer_msg<Request,Request>> server_client_sptr;
 
 	for (;;)
 	{

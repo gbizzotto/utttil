@@ -14,97 +14,40 @@
 #include <utttil/srlz.hpp>
 
 #include <utttil/io/peer.hpp>
+#include <utttil/io/udpm_raw.hpp>
 
 namespace utttil {
 namespace io {
 
-inline int socket_udp()
-{
-	int sock = ::socket(PF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
-	if (sock == -1) {
-		std::cerr << "socket() " << ::strerror(errno) << std::endl;
-		return -1;
-	}
-	int enable = 1;
-	if (::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
-		std::cerr << "setsockopt(SO_REUSEADDR) " << ::strerror(errno) << std::endl;
-		return -1;
-	}
-	return sock;
-}
-inline int server_socket_udpm()
-{
-	return socket_udp();
-}
-inline int client_socket_udpm(const std::string & addr, int port)
-{
-	int sock = ::socket(PF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
-	if (sock == -1)
-		return -1;
-
-	sockaddr_in localSock = {};    // initialize to all zeroes
-	localSock.sin_family      = AF_INET;
-	localSock.sin_port        = htons(port);
-	localSock.sin_addr.s_addr = INADDR_ANY;
-	// Note from manpage that bind returns 0 on success
-	if (0 != bind(sock, (sockaddr*)&localSock, sizeof(localSock)))
-	{
-		std::cout << "udpm client bind failed: " << strerror(errno) << std::endl;
-		return -1;
-	}
-
-	// Join the multicast group on the local interface.  Note that this
-	//    IP_ADD_MEMBERSHIP option must be called for each local interface over
-	//    which the multicast datagrams are to be received.
-	ip_mreq group = {};    // initialize to all zeroes
-	group.imr_multiaddr.s_addr = inet_addr(addr.c_str());
-	group.imr_interface.s_addr = inet_addr("0.0.0.0");
-	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&group, sizeof(group)) < 0)
-	{
-		std::cout << "udpm setsockopt failed: " << strerror(errno) << std::endl;
-		return -1;
-	}
-
-	return sock;
-}
-
 
 template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct udpm_client : peer<MsgIn,MsgOut>
+struct udpm_client_msg : peer_msg<MsgIn,MsgOut>
 {
-	// reader
-	char   recv_buffer[1400];
-	int    recv_size;
+	udpm_client_raw raw;
+
 	utttil::ring_buffer<MsgIn> inbox_msg;
 
-	udpm_client(const utttil::url & url)
-		: peer<MsgIn,MsgOut>(client_socket_udpm(url.host.c_str(), std::stoull(url.port)))
-		, recv_size(0)
-		, inbox_msg(peer<MsgIn,MsgOut>::inbox_msg_capacity_bits)
+	udpm_client_msg(const utttil::url & url)
+		: raw(url)
+		, inbox_msg(peer_msg<MsgIn,MsgOut>::inbox_msg_capacity_bits)
 	{}
 
 	bool does_accept() override { return false; }
 	bool does_read  () override { return true ; }
 	bool does_write () override { return false; }
 
+	void close() override { return raw.close(); }
+	bool good() const override { return raw.good(); }
+
 	utttil::ring_buffer<MsgIn> * get_inbox_msg() override { return &inbox_msg; }
 
-	size_t read() override
+	void unpack()
 	{
-		recv_size = ::read(this->fd, recv_buffer, sizeof(recv_buffer));
-		if (recv_size > 0) {
-			unpack();
-		} else if (recv_size < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
-			this->good_ = false;
-		}
-		return recv_size;
-	}
-	void unpack() override
-	{
-		auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ptr_reader(recv_buffer));
+		auto & inbox = *raw.get_inbox();
+
 		while ( ! inbox_msg.full())
 		{
+			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ring_buffer_reader(inbox, inbox.size()));
 			size_t msg_size;
 			size_t total_size;
 			try {
@@ -113,7 +56,8 @@ struct udpm_client : peer<MsgIn,MsgOut>
 				break;
 			}
 			total_size = msg_size + deserializer.read.size();
-			if (total_size > (size_t)recv_size) {
+			//assert(msg_size == 45);
+			if (total_size > inbox.size()) {
 				break;
 			}
 			MsgIn & msg = inbox_msg.back();
@@ -123,15 +67,24 @@ struct udpm_client : peer<MsgIn,MsgOut>
 				std::cout << ">> failed" << std::endl;
 				break;
 			}
+			assert(deserializer.read.size() == total_size);
 			inbox_msg.advance_back(1);
+			inbox.advance_front(deserializer.read.size());
 		}
-		recv_size = 0;
+	}
+
+	size_t read() override
+	{
+		return raw.read();
 	}
 };
 
 template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct udpm_server : peer<MsgIn,MsgOut>
+struct udpm_server_msg : peer_msg<MsgIn,MsgOut>
 {
+	int fd;
+	bool good_;
+
 	// writer
 	sockaddr_in sendto_addr;
 	sockaddr_in *sendto_addr_ptr;
@@ -141,12 +94,14 @@ struct udpm_server : peer<MsgIn,MsgOut>
 	int    send_size;
 	utttil::ring_buffer<MsgOut> outbox_msg;
 
-	udpm_server(const utttil::url & url)
-		: peer<MsgIn,MsgOut>(server_socket_udpm())
+	udpm_server_msg(const utttil::url & url)
+		: peer_msg<MsgIn,MsgOut>()
+		, fd(server_socket_udpm())
+		, good_(true)
 		, sendto_addr_ptr(nullptr)
 		, sendto_addr_len(0)
 		, send_size(0)
-		, outbox_msg(peer<MsgIn,MsgOut>::outbox_msg_capacity_bits)
+		, outbox_msg(peer_msg<MsgIn,MsgOut>::outbox_msg_capacity_bits)
 	{
 	    memset(&sendto_addr, 0, sizeof(sendto_addr));
 	    sendto_addr.sin_family = AF_INET;
@@ -160,25 +115,26 @@ struct udpm_server : peer<MsgIn,MsgOut>
 	bool does_read  () override { return false; }
 	bool does_write () override { return true ; }
 
+	void close() override
+	{
+		if (fd != -1)
+		{
+			::close(fd);
+			fd = -1;
+		}
+	}
+	bool good() const override { return (fd != -1) & good_; }
+
 	utttil::ring_buffer<MsgOut> * get_outbox_msg() override { return &outbox_msg; }
 
 	size_t write() override
 	{
-		//print_outbox();
-		pack();
 		if (send_size == 0)
 			return 0;
-		//print_outbox();
-		//std::cout << "Printint from outbox: " << std::hex;
-		//for(const char *ptr = std::get<0>(stretch), *end=ptr+std::get<1>(stretch) ; ptr<end ; ptr++)
-		//	std::cout << (unsigned int)*ptr << ' ';
-		//std::cout << std::endl << std::dec;
 		int count = ::sendto(this->fd, send_buffer, send_size, 0, (sockaddr*)sendto_addr_ptr, sendto_addr_len);
 		if (count > 0) {
-			//std::cout << "wrote " << count << std::endl;
 			assert(count == send_size);
 			send_size = 0;
-			//print_outbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
 			std::cout << "sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
