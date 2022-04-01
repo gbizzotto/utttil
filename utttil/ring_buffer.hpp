@@ -8,16 +8,22 @@
 
 namespace utttil {
 
-template<typename T, size_t SizeBits>
+template<typename T>
 struct ring_buffer
 {
 	using value_type = T;
-	inline static constexpr size_t Capacity = (1<<SizeBits);
-	inline static constexpr size_t Mask = Capacity-1;
+	size_t Capacity;
+	size_t Mask;
 
-	T data[Capacity];
+	std::unique_ptr<T[]> data;
 	std::atomic_size_t front_ = 0;
 	std::atomic_size_t back_ = 0;
+
+	ring_buffer(int size_in_bits)
+		: Capacity(1 << size_in_bits)
+		, Mask(Capacity - 1)
+		, data(std::make_unique<T[]>(Capacity))
+	{}
 
 	struct iterator
 	{
@@ -45,11 +51,23 @@ struct ring_buffer
 		}
 	}
 
+	/*
+	void resize(int size_in_bits)
+	{
+		Capacity = 1 << size_in_bits;
+		Mask = Capacity - 1;
+		T * new_data = realloc(data.get(), sizeof(
+		data(std::make_unique<T[]>(new T[Capacity]()))
+	}
+	*/
+
 	void clear()
 	{
-		//std::cout << "ring_buffer sizeof(T) " << sizeof(T) << ", clear" << std::endl;
-		while( ! empty())
-			pop_front();
+		front_ = back_;
+	}
+	void reset()
+	{
+		front_ = back_ = 0;
 	}
 
 	size_t capacity() const
@@ -149,7 +167,7 @@ struct ring_buffer
 		if ((back_ & Mask) >= (front_ & Mask)) {
 			assert((front_ & Mask) <= free_size());
 			return std::make_tuple(
-					data,
+					data.get(),
 					front_ & Mask
 				);
 		} else {
@@ -197,7 +215,7 @@ struct ring_buffer
 		} else {
 			assert((back_ & Mask) < size());
 			return std::make_tuple(
-					data,
+					data.get(),
 					back_ & Mask
 				);
 		}
@@ -251,8 +269,8 @@ struct ring_buffer
 	}
 };
 
-template<typename Out, typename T, size_t Capacity>
-Out & operator<<(Out & out, const utttil::ring_buffer<T, Capacity> & rb)
+template<typename Out, typename T>
+Out & operator<<(Out & out, const utttil::ring_buffer<T> & rb)
 {
 	return out << "ring_buffer sizeof(T): " << sizeof(T) << ", capacity: " << rb.capacity() << ", front_: " << rb.front_ << ", back: " << rb.back_;
 }

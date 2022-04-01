@@ -29,10 +29,16 @@ struct context
 	std::thread tr;
 	std::thread tw;
 	std::atomic_bool go_on = true;
-	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, 8> new_accept_peers;
-	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, 8> new_read_peers;
-	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, 8> new_write_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>> new_accept_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>> new_read_peers;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>> new_write_peers;
 	size_t next_id = 1;
+
+	context()
+		:new_accept_peers(8)
+		,new_read_peers(8)
+		,new_write_peers(8)
+	{}
 
 	~context()
 	{

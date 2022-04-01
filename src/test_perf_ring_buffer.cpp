@@ -14,7 +14,7 @@ bool test(T default_value)
 	utttil::measurement_point mpf(std::string("pop_front ").append(typeid(T).name()));
 	utttil::measurement_point mpb(std::string("push_back ").append(typeid(T).name()));
 
-	utttil::ring_buffer<T, 10> rb;
+	utttil::ring_buffer<T> rb(10);
 
 	for(size_t i=0 ; i<rb.capacity()/2 ; i++)
 		rb.push_back(default_value);

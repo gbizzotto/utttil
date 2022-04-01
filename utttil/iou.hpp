@@ -22,7 +22,6 @@
 #include <liburing.h>
 
 #include <utttil/url.hpp>
-#include <utttil/ring_buffer.hpp>
 #include <utttil/srlz.hpp>
 #include <utttil/no_init.hpp>
 #include <utttil/on_scope_exit.hpp>

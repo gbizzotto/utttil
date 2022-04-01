@@ -107,21 +107,25 @@ struct tcp_socket : peer<MsgIn,MsgOut>
 	sockaddr_in *sendto_addr_ptr;
 	size_t sendto_addr_len;
 	iovec write_iov[1];
-	utttil::ring_buffer<char  , peer<MsgIn,MsgOut>::outbox_capacity_bits> outbox;
-	utttil::ring_buffer<MsgOut, peer<MsgIn,MsgOut>::outbox_msg_capacity_bits> outbox_msg;
+	utttil::ring_buffer<char  > outbox;
+	utttil::ring_buffer<MsgOut> outbox_msg;
 
 	// reader
 	sockaddr_in recvfrom_addr;
 	sockaddr_in *recvfrom_addr_ptr;
 	size_t recvfrom_addr_len;
 	iovec read_iov[1];
-	utttil::ring_buffer<char , peer<MsgIn,MsgOut>::inbox_capacity_bits> inbox;
-	utttil::ring_buffer<MsgIn, peer<MsgIn,MsgOut>::inbox_msg_capacity_bits> inbox_msg;
+	utttil::ring_buffer<char > inbox;
+	utttil::ring_buffer<MsgIn> inbox_msg;
 
 	tcp_socket(int fd_)
 		: peer<MsgIn,MsgOut>(fd_)
 		, sendto_addr_ptr(nullptr)
 		, sendto_addr_len(0)
+		, outbox    (peer<MsgIn,MsgOut>::    outbox_capacity_bits)
+		, outbox_msg(peer<MsgIn,MsgOut>::outbox_msg_capacity_bits)
+		, inbox     (peer<MsgIn,MsgOut>::     inbox_capacity_bits)
+		, inbox_msg (peer<MsgIn,MsgOut>:: inbox_msg_capacity_bits)
 	{}
 	tcp_socket(const utttil::url & url)
 		: tcp_socket(client_socket_tcp(url.host.c_str(), std::stoull(url.port))) // delegate
@@ -131,11 +135,28 @@ struct tcp_socket : peer<MsgIn,MsgOut>
 	bool does_read  () override { return true ; }
 	bool does_write () override { return true ; }
 
-	utttil::ring_buffer<char  , peer<MsgIn,MsgOut>::      outbox_capacity_bits> * get_outbox      () override { return &outbox    ; }
-	utttil::ring_buffer<MsgOut, peer<MsgIn,MsgOut>::  outbox_msg_capacity_bits> * get_outbox_msg  () override { return &outbox_msg; }
-	utttil::ring_buffer<char  , peer<MsgIn,MsgOut>::       inbox_capacity_bits> * get_inbox       () override { return &inbox    ; }
-	utttil::ring_buffer<MsgIn , peer<MsgIn,MsgOut>::   inbox_msg_capacity_bits> * get_inbox_msg   () override { return &inbox_msg; }
+	utttil::ring_buffer<char  > * get_outbox      () override { return &outbox    ; }
+	utttil::ring_buffer<MsgOut> * get_outbox_msg  () override { return &outbox_msg; }
+	utttil::ring_buffer<char  > * get_inbox       () override { return &inbox    ; }
+	utttil::ring_buffer<MsgIn > * get_inbox_msg   () override { return &inbox_msg; }
 
+	void print_inbox()
+	{
+		std::cout << "front_: " << inbox.front_ << std::endl;
+		std::cout << "front_ & Mask: " << (inbox.front_ & inbox.Mask) << std::endl;
+		std::cout << "back_: " << inbox.back_ << std::endl;
+		std::cout << "back_ & Mask: " << (inbox.back_ & inbox.Mask) << std::endl;
+		auto stretch  = inbox.front_stretch();
+		auto stretch2 = inbox.front_stretch_2();
+		std::cout << "inbox: " << std::hex;
+		for(const char *ptr = std::get<0>(stretch), *end=ptr+std::get<1>(stretch) ; ptr<end ; ptr++)
+			std::cout << (unsigned int)*ptr << ' ';
+		std::cout << std::endl;
+		for(const char *ptr = std::get<0>(stretch2), *end=ptr+std::get<1>(stretch2) ; ptr<end ; ptr++)
+			std::cout << (unsigned int)*ptr << ' ';
+		std::cout << std::endl << std::dec;
+	}
+	
 	size_t write() override
 	{
 		//print_outbox();
@@ -279,17 +300,18 @@ struct tcp_server : peer<MsgIn,MsgOut>
 	// acceptor
 	sockaddr_in accept_client_addr;
 	socklen_t client_addr_len = sizeof(sockaddr_in);
-	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, peer<MsgIn,MsgOut>::accept_inbox_capacity_bits> accept_inbox;
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>> accept_inbox;
 
 	tcp_server(const utttil::url & url)
 		: peer<MsgIn,MsgOut>(server_socket_tcp(std::stoull(url.port)))
+		, accept_inbox(peer<MsgIn,MsgOut>::accept_inbox_capacity_bits)
 	{}
 
 	bool does_accept() override { return true ; }
 	bool does_read  () override { return false; }
 	bool does_write () override { return false; }
 
-	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, peer<MsgIn,MsgOut>::accept_inbox_capacity_bits> * get_accept_inbox() override { return &accept_inbox; }
+	utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>> * get_accept_inbox() override { return &accept_inbox; }
 
 	std::shared_ptr<peer<MsgIn,MsgOut>> accept() override
 	{

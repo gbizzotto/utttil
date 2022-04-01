@@ -86,26 +86,31 @@ struct peer
 	inline static constexpr size_t accept_inbox_capacity_bits = 8;
 	sockaddr_in accept_client_addr;
 	socklen_t client_addr_len = sizeof(sockaddr_in);
-	utttil::ring_buffer<std::shared_ptr<peer>, accept_inbox_capacity_bits> accept_inbox;
+	utttil::ring_buffer<std::shared_ptr<peer>> accept_inbox;
 
 	// writer
 	inline static constexpr size_t outbox_capacity_bits = 16;
 	inline static constexpr size_t outbox_msg_capacity_bits = 10;
 	iovec write_iov[2];
-	utttil::ring_buffer<char, outbox_capacity_bits> outbox;
-	utttil::ring_buffer<MsgT, outbox_msg_capacity_bits> outbox_msg;
+	utttil::ring_buffer<char> outbox;
+	utttil::ring_buffer<MsgT> outbox_msg;
 
 	// reader
 	inline static constexpr size_t inbox_capacity_bits = 16;
 	inline static constexpr size_t inbox_msg_capacity_bits = 10;
 	iovec read_iov[2];
-	utttil::ring_buffer<char, inbox_capacity_bits> inbox;
-	utttil::ring_buffer<MsgT, inbox_msg_capacity_bits> inbox_msg;
+	utttil::ring_buffer<char> inbox;
+	utttil::ring_buffer<MsgT> inbox_msg;
 
 	peer(size_t id_, int fd_, io_uring & ring_)
 		: id(id_)
 		, fd(fd_)
 		, ring(ring_)
+		, accept_inbox(accept_inbox_capacity_bits)
+		, outbox      (      outbox_capacity_bits)
+		, outbox_msg  (  outbox_msg_capacity_bits)
+		, inbox       (       inbox_capacity_bits)
+		, inbox_msg   (   inbox_msg_capacity_bits)
 	{}
 
 	static std::shared_ptr<peer> connect(size_t id, io_uring & ring, const utttil::url & url)

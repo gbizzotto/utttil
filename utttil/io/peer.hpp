@@ -53,11 +53,11 @@ struct peer
 	virtual void async_send(const MsgOut  &)             { assert(false); }
 	virtual void async_send(      MsgOut &&)             { assert(false); }
 
-	virtual utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>, peer<MsgIn,MsgOut>::accept_inbox_capacity_bits> * get_accept_inbox() { return nullptr; }
-	virtual utttil::ring_buffer<char                               , peer<MsgIn,MsgOut>::      outbox_capacity_bits> * get_outbox      () { return nullptr; }
-	virtual utttil::ring_buffer<MsgOut                             , peer<MsgIn,MsgOut>::  outbox_msg_capacity_bits> * get_outbox_msg  () { return nullptr; }
-	virtual utttil::ring_buffer<char                               , peer<MsgIn,MsgOut>::       inbox_capacity_bits> * get_inbox       () { return nullptr; }
-	virtual utttil::ring_buffer<MsgIn                              , peer<MsgIn,MsgOut>::   inbox_msg_capacity_bits> * get_inbox_msg   () { return nullptr; }
+	virtual utttil::ring_buffer<std::shared_ptr<peer<MsgIn,MsgOut>>> * get_accept_inbox() { return nullptr; }
+	virtual utttil::ring_buffer<char                               > * get_outbox      () { return nullptr; }
+	virtual utttil::ring_buffer<MsgOut                             > * get_outbox_msg  () { return nullptr; }
+	virtual utttil::ring_buffer<char                               > * get_inbox       () { return nullptr; }
+	virtual utttil::ring_buffer<MsgIn                              > * get_inbox_msg   () { return nullptr; }
 };
 
 }} // namespace

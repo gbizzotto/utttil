@@ -75,18 +75,19 @@ struct udpm_client : peer<MsgIn,MsgOut>
 	// reader
 	char   recv_buffer[1400];
 	int    recv_size;
-	utttil::ring_buffer<MsgIn, peer<MsgIn,MsgOut>::inbox_msg_capacity_bits> inbox_msg;
+	utttil::ring_buffer<MsgIn> inbox_msg;
 
 	udpm_client(const utttil::url & url)
 		: peer<MsgIn,MsgOut>(client_socket_udpm(url.host.c_str(), std::stoull(url.port)))
 		, recv_size(0)
+		, inbox_msg(peer<MsgIn,MsgOut>::inbox_msg_capacity_bits)
 	{}
 
 	bool does_accept() override { return false; }
 	bool does_read  () override { return true ; }
 	bool does_write () override { return false; }
 
-	utttil::ring_buffer<MsgIn, peer<MsgIn,MsgOut>::inbox_msg_capacity_bits> * get_inbox_msg() override { return &inbox_msg; }
+	utttil::ring_buffer<MsgIn> * get_inbox_msg() override { return &inbox_msg; }
 
 	size_t read() override
 	{
@@ -138,13 +139,14 @@ struct udpm_server : peer<MsgIn,MsgOut>
 
 	char   send_buffer[1400];
 	int    send_size;
-	utttil::ring_buffer<MsgOut, peer<MsgIn,MsgOut>::outbox_msg_capacity_bits> outbox_msg;
+	utttil::ring_buffer<MsgOut> outbox_msg;
 
 	udpm_server(const utttil::url & url)
 		: peer<MsgIn,MsgOut>(server_socket_udpm())
 		, sendto_addr_ptr(nullptr)
 		, sendto_addr_len(0)
 		, send_size(0)
+		, outbox_msg(peer<MsgIn,MsgOut>::outbox_msg_capacity_bits)
 	{
 	    memset(&sendto_addr, 0, sizeof(sendto_addr));
 	    sendto_addr.sin_family = AF_INET;
@@ -158,7 +160,7 @@ struct udpm_server : peer<MsgIn,MsgOut>
 	bool does_read  () override { return false; }
 	bool does_write () override { return true ; }
 
-	utttil::ring_buffer<MsgOut, peer<MsgIn,MsgOut>::outbox_msg_capacity_bits> * get_outbox_msg() override { return &outbox_msg; }
+	utttil::ring_buffer<MsgOut> * get_outbox_msg() override { return &outbox_msg; }
 
 	size_t write() override
 	{

@@ -8,7 +8,7 @@
 
 bool test_back()
 {
-	utttil::ring_buffer<int, 4> rb;
+	utttil::ring_buffer<int> rb(4);
 
 	ASSERT_ACT(rb.capacity(), ==, 16ull, return false);
 	ASSERT_ACT(rb.size()    , ==,  0ull, return false);
@@ -68,7 +68,7 @@ public:
 
 bool test_object()
 {
-	utttil::ring_buffer<C, 5> rb;
+	utttil::ring_buffer<C> rb(5);
 
 
 	// back
@@ -95,13 +95,13 @@ bool test_object()
 
 bool test_stretches()
 {
-	utttil::ring_buffer<char,10> rb;
+	utttil::ring_buffer<char> rb(10);
 
 	auto t = rb.front_stretch();
-	ASSERT_ACT(std::get<0>(t), ==, rb.data, return false);
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[0], return false);
 	ASSERT_ACT(std::get<1>(t), ==, 0ull, return false);
 	t = rb.back_stretch();
-	ASSERT_ACT(std::get<0>(t), ==, rb.data, return false);
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[0], return false);
 	ASSERT_ACT(std::get<1>(t), ==, rb.capacity(), return false);
 
 	for (int i=0 ; i<100 ; i++)
@@ -109,7 +109,7 @@ bool test_stretches()
 
 	ASSERT_ACT(rb.size(), ==, 100ull, return false);
 	t = rb.front_stretch();
-	ASSERT_ACT(std::get<0>(t), ==, rb.data, return false);
+	ASSERT_ACT(std::get<0>(t), ==, &rb.data[0], return false);
 	ASSERT_ACT(std::get<1>(t), ==, 100ull, return false);
 	t = rb.back_stretch();
 	ASSERT_ACT(std::get<0>(t), ==, &rb.data[100], return false);
@@ -153,7 +153,7 @@ bool test_thread_safety_fuzz()
 {
 	std::atomic_bool go_on = true;
 	const int total = 10000000;
-	utttil::ring_buffer<int, 5> rb;
+	utttil::ring_buffer<int> rb(5);
 
 	utttil::measurement_point mp("push_back + pop");
 	utttil::measurement m(mp);
