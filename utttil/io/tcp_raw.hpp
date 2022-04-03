@@ -142,7 +142,7 @@ struct tcp_socket_raw : peer_raw
 		std::cout << std::endl << std::dec;
 	}
 	
-	size_t write() override
+	int write() override
 	{
 		//print_outbox();
 		if (outbox.empty())
@@ -165,7 +165,7 @@ struct tcp_socket_raw : peer_raw
 		}
 		return count;
 	}
-	size_t read() override
+	int read() override
 	{
 		if (inbox.full())
 			return 0;

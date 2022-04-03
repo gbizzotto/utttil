@@ -53,11 +53,11 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 	utttil::ring_buffer<MsgOut> * get_outbox_msg  () override { return &outbox_msg; }
 	utttil::ring_buffer<MsgIn > * get_inbox_msg   () override { return & inbox_msg; }
 
-	size_t write() override
+	int write() override
 	{
 		return raw.write();
 	}
-	size_t read() override
+	int read() override
 	{
 		return raw.read();
 	}
@@ -88,7 +88,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 				outbox.advance_back(s.write.size());
 				outbox_msg.pop_front();
 			} catch (utttil::srlz::device::stream_end_exception &) {
-				std::cout << "send() stream_end_exception" << std::endl;
+				std::cout << __func__ << " stream_end_exception" << std::endl;
 				return;
 			}
 		}
@@ -97,7 +97,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 	{
 		auto & inbox = *raw.get_inbox();
 
-		while ( ! inbox_msg.full())
+		while ( ! inbox_msg.full() && ! inbox.empty())
 		{
 			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ring_buffer_reader(inbox, inbox.size()));
 			size_t msg_size;
@@ -105,6 +105,8 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 			try {
 				deserializer >> msg_size;
 			} catch (utttil::srlz::device::stream_end_exception &) {
+				std::cout << __func__ << ">> size failed " << std::endl;
+				raw.close();
 				break;
 			}
 			total_size = msg_size + deserializer.read.size();
@@ -116,7 +118,8 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 			try {
 				deserializer >> msg;
 			} catch (utttil::srlz::device::stream_end_exception &) {
-				std::cout << ">> failed" << std::endl;
+				std::cout << __func__ << ">> failed" << std::endl;
+				raw.close();
 				break;
 			}
 			assert(deserializer.read.size() == total_size);

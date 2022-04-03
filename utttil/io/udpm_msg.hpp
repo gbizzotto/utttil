@@ -73,7 +73,7 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut>
 		}
 	}
 
-	size_t read() override
+	int read() override
 	{
 		return raw.read();
 	}
@@ -127,7 +127,7 @@ struct udpm_server_msg : peer_msg<MsgIn,MsgOut>
 
 	utttil::ring_buffer<MsgOut> * get_outbox_msg() override { return &outbox_msg; }
 
-	size_t write() override
+	int write() override
 	{
 		if (send_size == 0)
 			return 0;

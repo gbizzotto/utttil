@@ -193,6 +193,9 @@ struct Request
 			case Request::Type::End             :                         break;
 		}
 	}
+
+	using seq_type = decltype(seq);
+	seq_t get_seq() const { return seq; }
 };
 
 inline std::ostream & operator<<(std::ostream & out, const Request::Type & type)

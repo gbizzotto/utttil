@@ -21,8 +21,8 @@ struct peer
 	virtual bool good() const = 0;
 
 	virtual std::shared_ptr<peer> accept() { assert(false); return nullptr; };
-	virtual size_t write()                 { assert(false); return 0; }
-	virtual size_t read ()                 { assert(false); return 0; }
+	virtual int write()                 { assert(false); return 0; }
+	virtual int read ()                 { assert(false); return 0; }
 	virtual void   pack()                  { assert(false); }
 	virtual void unpack()                  { assert(false); }
 };

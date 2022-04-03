@@ -116,6 +116,61 @@ bool test_srv_2_cli_udpm(std::string url)
 	return true;
 }
 
+bool test_srv_2_cli_udpmr(std::string url, std::string url_replay)
+{
+	Request sent_by_server;
+	sent_by_server.type = Request::Type::NewOrder;
+	sent_by_server.seq = 0;
+	sent_by_server.account_id = utttil::max<decltype(sent_by_server.account_id)>();
+	sent_by_server.req_id = utttil::max<decltype(sent_by_server.req_id)>();
+	NewOrder &new_order2 = sent_by_server.new_order;
+	new_order2.instrument_id = utttil::max<decltype(new_order2.instrument_id)>();
+	new_order2.is_sell                   = false;
+	new_order2.is_limit                  = false;
+	new_order2.is_stop                   = false;
+	new_order2.participate_dont_initiate = false;
+	new_order2.time_in_force = TimeInForce::GTD;
+	new_order2.lot_count      = utttil::max<decltype(new_order2.lot_count     )>();
+	new_order2.pic_count      = utttil::max<decltype(new_order2.pic_count     )>();
+	new_order2.stop_pic_count = utttil::max<decltype(new_order2.stop_pic_count)>();
+
+	Request recv_by_client;
+
+	utttil::io::context ctx;
+	ctx.run();
+	std::cout << "context running" << std::endl;
+
+	// server
+	auto server_sptr = ctx.bind_msg<Request,Request>(url, url_replay);
+	ASSERT_ACT(server_sptr, !=, nullptr, return false);
+	std::cout << "bind done" << std::endl;
+
+	// set up a gap
+	server_sptr->async_send(sent_by_server);
+	sent_by_server.seq = 1;
+
+	// client
+	auto client_sptr = ctx.connect_msg<Request,Request>(url, url_replay);
+	ASSERT_ACT(client_sptr, !=, nullptr, return false);
+	std::cout << "connect done" << std::endl;
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	server_sptr->async_send(sent_by_server);
+	std::cout << __func__ << " msg sent by server" << std::endl;
+
+	while (client_sptr->get_inbox_msg()->empty())
+		_mm_pause();	
+	std::cout << "msg rcvd by client" << std::endl;
+	recv_by_client = client_sptr->get_inbox_msg()->front();
+	client_sptr->get_inbox_msg()->pop_front();
+	recv_by_client = client_sptr->get_inbox_msg()->front();
+	
+	ASSERT_ACT(recv_by_client, ==, sent_by_server, return false);
+	
+	return true;
+}
+
 bool test_2_ways_msg(std::string url)
 {
 	Request sent_by_client;
@@ -231,7 +286,8 @@ int main()
 {
 	bool success = true
 		//&& test("ws://127.0.0.1:1234/")
-		&& test_srv_2_cli_udpm ("udpm://226.1.1.1:2000/")
+		&& test_srv_2_cli_udpm("udpm://226.1.1.1:2000/")
+		&& test_srv_2_cli_udpmr("udpmr://226.1.1.1:2001/", "tcp://127.0.0.1:2005")
 		&& test_2_ways    ( "tcp://127.0.0.1:2002/")
 		&& test_2_ways_msg( "tcp://127.0.0.1:2003/")
 		;

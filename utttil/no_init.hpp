@@ -1,4 +1,6 @@
 
+// Credit to https://stackoverflow.com/questions/15219984/using-vectorchar-as-a-buffer-without-initializing-it-on-resize/15220853#15220853
+
 #pragma once
 
 namespace utttil {

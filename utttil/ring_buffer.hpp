@@ -37,10 +37,11 @@ struct ring_buffer
 		ring_buffer * rb;
 		size_t pos;
 		iterator & operator++() { ++pos; return *this; }
-		T & operator*() { return rb->data[pos & Mask]; }
-		T * operator->() { return &rb->data[pos & Mask]; }
-		bool operator==(const iterator & other) { return (pos & Mask) == (other.pos & Mask); }
-		bool operator!=(const iterator & other) { return (pos & Mask) != (other.pos & Mask); }
+		T & operator* () { return  rb->data[pos & rb->Mask]; }
+		T * operator->() { return &rb->data[pos & rb->Mask]; }
+		bool operator==(const iterator & other) { return (pos & rb->Mask) == (other.pos & rb->Mask); }
+		bool operator!=(const iterator & other) { return (pos & rb->Mask) != (other.pos & rb->Mask); }
+		iterator operator+(size_t s) const { return iterator{rb, pos+s}; }
 	};
 	iterator begin() { return iterator{this, front_}; }
 	iterator   end() { return iterator{this,  back_}; }

@@ -84,7 +84,7 @@ struct udpm_client_raw : peer_raw
 
 	utttil::ring_buffer<char> * get_inbox () override { return & inbox ; }
 	
-	size_t read() override
+	int read() override
 	{
 		if (inbox.full())
 			return 0;
@@ -127,7 +127,7 @@ struct udpm_server_raw : peer_raw
 	bool does_read  () override { return false; }
 	bool does_write () override { return true ; }
 
-	size_t write() override
+	int write() override
 	{
 		if (outbox.empty())
 			return 0;

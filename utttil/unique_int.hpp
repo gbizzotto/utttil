@@ -24,7 +24,9 @@ struct unique_int
 	T value() const { return t; }
 	unique_int & operator++() { ++t; return *this; }
 	unique_int operator++(int) { return unique_int(t++); }
-	unique_int & operator-=(unique_int & other) { t -= other.t; return *this; }
+	unique_int & operator-=(const unique_int & other) { t -= other.t; return *this; }
+	unique_int operator-(const unique_int & other) const { return unique_int{t - other.t}; }
+	unique_int operator+(const unique_int & other) const { return unique_int{t + other.t}; }
 
 	template<typename Serializer>
 	void serialize(Serializer && s) const
