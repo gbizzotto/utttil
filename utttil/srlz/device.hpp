@@ -82,15 +82,21 @@ struct ptr_reader
 {
 	char * c;
 	char * begin_ptr;
-	inline ptr_reader(char * c)
+	char * end_ptr;
+	inline ptr_reader(char * c, size_t max_size)
 		: c(c)
 		, begin_ptr(c)
+		, end_ptr(c + max_size)
 	{}
 	inline char operator()()
 	{
-		return *c++;
+		if (c < end_ptr)
+			return *c++;
+		else
+			throw stream_end_exception();
 	}
 	inline size_t size() const { return std::distance(begin_ptr, c); }
+	inline void skip(size_t count) { c += count; }
 };
 struct ptr_writer
 {

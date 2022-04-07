@@ -150,6 +150,7 @@ bool test_srv_2_cli_udpmr(std::string url, std::string url_replay)
 	sent_by_server.seq = 1;
 
 	// client
+	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // let's miss the 1st msg
 	auto client_sptr = ctx.connect_msg<Request,Request>(url, url_replay);
 	ASSERT_ACT(client_sptr, !=, nullptr, return false);
 	std::cout << "connect done" << std::endl;
@@ -161,10 +162,14 @@ bool test_srv_2_cli_udpmr(std::string url, std::string url_replay)
 
 	while (client_sptr->get_inbox_msg()->empty())
 		_mm_pause();	
-	std::cout << "msg rcvd by client" << std::endl;
 	recv_by_client = client_sptr->get_inbox_msg()->front();
+	std::cout << "msg rcvd by client #" << recv_by_client.get_seq() << std::endl;
 	client_sptr->get_inbox_msg()->pop_front();
+	while (client_sptr->get_inbox_msg()->empty())
+		_mm_pause();	
 	recv_by_client = client_sptr->get_inbox_msg()->front();
+	std::cout << "msg rcvd by client #" << recv_by_client.get_seq() << std::endl;
+	client_sptr->get_inbox_msg()->pop_front();
 	
 	ASSERT_ACT(recv_by_client, ==, sent_by_server, return false);
 	
@@ -232,7 +237,7 @@ bool test_2_ways_msg(std::string url)
 
 	std::shared_ptr<utttil::io::peer_msg<Request,Request>> server_client_sptr;
 
-	for (;;)
+	while(server_sptr->good())
 	{
 		if ( ! server_sptr->get_accept_inbox()->empty())
 		{
@@ -246,7 +251,7 @@ bool test_2_ways_msg(std::string url)
 	client_sptr->async_send(sent_by_client);
 	std::cout << "msg sent by client" << std::endl;
 
-	for (;;)
+	while(server_client_sptr->good())
 	{
 		if ( ! server_client_sptr->get_inbox_msg()->empty())
 		{
@@ -263,7 +268,7 @@ bool test_2_ways_msg(std::string url)
 	std::cout << "reply sent by client" << std::endl;
 
 
-	for (;;)
+	while(client_sptr->good())
 	{
 		if ( ! client_sptr->get_inbox_msg()->empty())
 		{
@@ -287,7 +292,7 @@ int main()
 	bool success = true
 		//&& test("ws://127.0.0.1:1234/")
 		&& test_srv_2_cli_udpm("udpm://226.1.1.1:2000/")
-		&& test_srv_2_cli_udpmr("udpmr://226.1.1.1:2001/", "tcp://127.0.0.1:2005")
+		&& test_srv_2_cli_udpmr("udpmr://226.1.1.1:2004/", "tcp://127.0.0.1:2005")
 		&& test_2_ways    ( "tcp://127.0.0.1:2002/")
 		&& test_2_ways_msg( "tcp://127.0.0.1:2003/")
 		;

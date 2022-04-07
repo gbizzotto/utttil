@@ -204,7 +204,23 @@ inline std::ostream & operator<<(std::ostream & out, const Request::Type & type)
 }
 inline std::ostream & operator<<(std::ostream & out, const Request & req)
 {
-	return out << "Req #" << req.seq << " T" << req.type;
+	out << "Req #" << req.seq << std::endl
+	    << " T: " << req.type << std::endl
+	    << " account_id: " << req.account_id << std::endl
+	    << " req_id: " << req.req_id << std::endl
+	    ;
+	if (req.type == Request::Type::NewOrder)
+		out << " instrument_id: " << req.new_order.instrument_id << std::endl
+		    << " is_sell: " << req.new_order.is_sell << std::endl
+		    << " is_limit: " << req.new_order.is_limit << std::endl
+		    << " is_stop: " << req.new_order.is_stop << std::endl
+		    << " participate_dont_initiate: " << req.new_order.participate_dont_initiate << std::endl
+		    << " time_in_force: " << (time_in_force_t) req.new_order.time_in_force << std::endl
+		    << " lot_count: " << req.new_order.lot_count << std::endl
+		    << " pic_count: " << req.new_order.pic_count << std::endl
+		    << " stop_pic_count: " << req.new_order.stop_pic_count << std::endl
+		    ;
+	return out;
 }
 inline bool operator==(const Request & left, const Request & right)
 {

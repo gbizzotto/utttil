@@ -15,6 +15,7 @@
 
 #include <utttil/io/peer.hpp>
 #include <utttil/io/udpm_raw.hpp>
+#include <utttil/assert.hpp>
 
 namespace utttil {
 namespace io {
@@ -56,7 +57,6 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut>
 				break;
 			}
 			total_size = msg_size + deserializer.read.size();
-			//assert(msg_size == 45);
 			if (total_size > inbox.size()) {
 				break;
 			}
@@ -67,7 +67,7 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut>
 				std::cout << ">> failed" << std::endl;
 				break;
 			}
-			assert(deserializer.read.size() == total_size);
+			ASSERT_ACT(deserializer.read.size(), ==, total_size, std::cout << msg << std::endl);
 			inbox_msg.advance_back(1);
 			inbox.advance_front(deserializer.read.size());
 		}

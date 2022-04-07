@@ -181,8 +181,9 @@ struct tcp_socket_raw : peer_raw
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
 			std::cout << "read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
+			return count;
 		}
-		return count;
+		return 0;
 	}
 
 	void async_write(const char * data, size_t len) override
