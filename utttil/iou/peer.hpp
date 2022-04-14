@@ -341,8 +341,8 @@ struct peer
 };
 
 template<>
-void peer<no_msg_t>::pack() {}
+inline void peer<no_msg_t>::pack() {}
 template<>
-void peer<no_msg_t>::unpack() {}
+inline void peer<no_msg_t>::unpack() {}
 
 }} // namespace

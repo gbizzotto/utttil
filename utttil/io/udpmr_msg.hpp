@@ -112,8 +112,8 @@ struct ReplayResponse
 
 // MsgIn type has to have a seq_type and a get_seq() so that the client can
 // check for sequence and ask for replays
-template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
 	using Seq = typename MsgIn::seq_type;
 
@@ -159,13 +159,6 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 			MsgIn msg;
 			auto checkpoint = deserializer.read;
 			try {
-				deserializer >> msg_size;
-				deserializer >> msg;
-			} catch (utttil::srlz::device::stream_end_exception &) {
-				std::cout << __LINE__ << " >> failed" << std::endl;
-				return Seq(0);
-			}
-			try {
 				while (deserializer.read.size() < size)
 				{
 					checkpoint = deserializer.read;
@@ -196,9 +189,10 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 	Seq next_expected_seq;
 
 	utttil::ring_buffer<frame> buffers;
-	tcp_socket_msg<ReplayResponse<Seq,MsgIn>,ReplayRequest<Seq>> replay_client;
+	tcp_socket_msg<ReplayResponse<Seq,MsgIn>,ReplayRequest<Seq>,DataT> replay_client;
 
 	utttil::ring_buffer<MsgIn> inbox_msg;
+	int tcp_req_id;
 
 	udpmr_client_msg(const utttil::url & url_udp, const utttil::url & url_tcp)
 		: fd(client_socket_udpm(url_udp.host.c_str(), std::stoull(url_udp.port)))
@@ -208,6 +202,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 		, buffers(10)
 		, replay_client(url_tcp)
 		, inbox_msg(12)
+		, tcp_req_id(0)
 	{
 		std::cout << "udpmr_client_msg() udp fd: " << fd << std::endl;
 		std::cout << "udpmr_client_msg() tcp fd: " << replay_client.raw.fd << std::endl;
@@ -225,7 +220,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 	void request_replay(Seq begin, Seq end)
 	{
 		ReplayRequest<Seq> & req = replay_client.get_outbox_msg()->back();
-		req.req_id = 1234;
+		req.req_id = ++tcp_req_id;
 		req.begin = begin;
 		req.end   = end;
 		replay_client.get_outbox_msg()->advance_back(1);
@@ -234,32 +229,35 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 	int read() override
 	{
 		int count = replay_client.read();
-		if (count < 0)
+		if (count < 0 && errno != 0 && errno != EAGAIN)
 		{
+			// TODO: try reconnecting
 			std::cout << __FILE__ << ":" << __LINE__ << " read tcp failed with errno: " << strerror(errno) << std::endl;
 			close();
 			this->good_ = false;
+			return count;
 		}
-		//else if (count > 0)
-		//	std::cout << "udpmr tcp client read " << count << std::endl;
 
 		if (buffers.full())
 			return 0;
 		frame & f = buffers.back();
 		f.reset();
 		count = ::read(this->fd, &f.data[0], frame_size);
-		if (count > 0) {
-			//std::cout << "udpmr udp client read " << count << std::endl;
+		if (count > 0)
+		{
 			f.size = count;
 			Seq seq = f.get_first_seq();
 			if (next_expected_seq <= seq)
 			{
-				if (next_expected_seq < seq) { // gap
+				if (next_expected_seq < seq) {
 					std::cout << "Gap: " << next_expected_seq << " - " << seq << std::endl;
 					request_replay(next_expected_seq, seq);
+				} else if (seq < next_expected_seq) {
+					std::cout << "Frame is out of order" << std::endl;
 				}
-				buffers.advance_back(1);
-				next_expected_seq = ++f.get_last_seq();
+				next_expected_seq = f.get_last_seq();
+				++next_expected_seq;
+				buffers.advance_back(1);	
 			}
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
 			std::cout << __FILE__ << ":" << __LINE__ << "read() good = false because of errno: " << errno << " - " << strerror(errno) << " fd: " << this->fd << std::endl;
@@ -277,6 +275,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 
 		// handle TCP msgs
 		replay_client.unpack();
+
 		while( ! replay_client.inbox_msg.empty())
 		{
 			ReplayResponse<Seq,MsgIn> & req = replay_client.inbox_msg.front();
@@ -287,96 +286,73 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut>
 				this->good_ = false;
 				close();
 				break;
-			}				
-			if (next_ordered_seq < req.payload.get_seq())
-			{
-				std::cout << __FILE__ << ":" << __LINE__ << " unrecoverable gap seq too high" << std::endl;
-				// unrecoverable gap
-				this->good_ = false;
-				close();
-				break;
 			}
-			else if (req.payload.get_seq() == next_ordered_seq)
+			if (req.payload.get_seq() == next_ordered_seq)
 			{
 				++next_ordered_seq;
 				inbox_msg.push_back(req.payload);
+				replay_client.inbox_msg.pop_front();
 			}
-			replay_client.inbox_msg.pop_front();
+			else if (req.payload.get_seq() < next_ordered_seq)
+			{
+				std::cout << "dropping obsolete tcp replay msg #" << req.payload.get_seq() << std::endl;
+				replay_client.inbox_msg.pop_front();
+			}
+			else if (next_ordered_seq < req.payload.get_seq())
+			{
+				break;
+			}
 		}
 
-		// handle UDP frames
 		for (auto it_buffers = buffers.begin() ; it_buffers != buffers.end() ; ++it_buffers)
 		{
-			//std::cout << "unpack udp" << std::endl;
 			frame & f = *it_buffers;
-			if (f.get_first_seq() == next_ordered_seq)
-			{
-				//std::cout << "f.get_first_seq() == next_ordered_seq" << std::endl;
-				if (inbox_msg.free_size() < ++(f.get_last_seq() - f.get_first_seq()))
-					break;
-		
-				//std::cout << "inbox_msg has enough free size" << std::endl;
-				auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ptr_reader(&f.data[0], f.size));
-				for (;;)
+			if (f.get_first_seq() != next_ordered_seq)
+				continue;
+
+			auto msg_count = ++(f.get_last_seq() - f.get_first_seq());
+			if (inbox_msg.free_size() < msg_count)
+				break;
+	
+			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ptr_reader(&f.data[0], f.size));
+			try {
+				for (auto i = msg_count ; (decltype(i))0<i ; --i)
 				{
-					if (deserializer.read.size() == f.size)
-					{
-						//std::cout << "Done unpacking frame" << std::endl;
-						break;
-					}
 					size_t msg_size;
-					try {
-						deserializer >> msg_size;
-						auto & msg = inbox_msg.back();
-						deserializer >> msg;
-						//std::cout << "deserialized msg #" << next_ordered_seq << std::endl;
-						if (next_ordered_seq == msg.get_seq()) {
-							++next_ordered_seq;
-							inbox_msg.advance_back(1);
-						} else
-							std::cout << "Msg inside frame out of order" << std::endl;
-					} catch (utttil::srlz::device::stream_end_exception &) {
-						std::cout << __FILE__ << ":" << __LINE__ << ">> failed" << std::endl;
-						break;
-					}
+					deserializer >> msg_size;
+					auto & msg = inbox_msg.back();
+					deserializer >> msg;
+					inbox_msg.advance_back(1);
 				}
+				next_ordered_seq += msg_count;
+			} catch (utttil::srlz::device::stream_end_exception &) {
+				std::cout << __FILE__ << ":" << __LINE__ << ">> failed" << std::endl;
+				std::cout << "Gap (bad frame): " << next_ordered_seq << " - " << next_ordered_seq + msg_count << std::endl;
+				request_replay(next_ordered_seq, next_ordered_seq + msg_count);
 			}
+			if (deserializer.read.size() != f.size)
+				std::cout << "Extraneous data in datagram" << std::endl;
 		}
-		//std::cout << "buffers.size(): " << buffers.size() << std::endl;
-		//std::cout << "next_ordered_seq: " << next_ordered_seq << std::endl;
-		// cleanup old UDP frames
-		auto it_buffers_to = buffers.end();
-		auto it_buffers = it_buffers_to;
-		//std::cout << __LINE__ << "it_buffers.pos: " << it_buffers.pos << ", it_buffers_to.pos: " << it_buffers_to.pos << std::endl;
-		size_t count = 0;
-		while(it_buffers != buffers.begin())
+
+		while ( ! buffers.empty())
 		{
-			--it_buffers;
-			//std::cout << "it_buffers->get_first_seq(): " << it_buffers->get_first_seq() << std::endl;
-			if (next_ordered_seq <= it_buffers->get_first_seq())
-				continue; // valid frame, keep it
-			//std::cout << "Remove 1" << std::endl;
-			--it_buffers_to;
-			++count;
-			//std::cout << __LINE__ << "it_buffers.pos: " << it_buffers.pos << ", it_buffers_to.pos: " << it_buffers_to.pos << std::endl;
-			if (it_buffers != it_buffers_to)
-				std::swap(*it_buffers, *it_buffers_to);
-			//std::cout << __LINE__ << "it_buffers.pos: " << it_buffers.pos << ", it_buffers_to.pos: " << it_buffers_to.pos << std::endl;
+			frame & f = buffers.front();
+			if (f.get_first_seq() < next_ordered_seq)
+				buffers.pop_front();
+			else
+				break;
 		}
-		//std::cout << __LINE__ << "it_buffers.pos: " << it_buffers.pos << ", it_buffers_to.pos: " << it_buffers_to.pos << std::endl;
-		//std::cout << "removing old buffers. count: " << count << std::endl;
-		buffers.pop_front(count);
 	}
 };
 
-template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct udpmr_server_msg : peer_msg<MsgIn,MsgOut>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
 	using Seq = typename MsgOut::seq_type;
 
 	udpm_server_msg<MsgIn,MsgOut> multicast_server;
-	tcp_server_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>> replay_server;
-	std::deque<std::shared_ptr<tcp_socket_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>>>> replay_clients;
+	tcp_server_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>,DataT> replay_server;
+	std::deque<std::shared_ptr<tcp_socket_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>,DataT>>> replay_clients;
 
 	utttil::ring_buffer<MsgOut> outbox_msg;
 
@@ -401,7 +377,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut>
 		if ( ! new_peer_sptr)
 			return nullptr;
 		replay_server.get_accept_inbox()->pop_front();
-		replay_clients.push_back(std::dynamic_pointer_cast<tcp_socket_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>>>(new_peer_sptr));
+		replay_clients.push_back(std::dynamic_pointer_cast<tcp_socket_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>,DataT>>(new_peer_sptr));
 		return new_peer_sptr;
 	}
 
@@ -442,7 +418,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut>
 				std::cout << "ReplayRequest " << req.req_id << ": " << req.begin << " - " << req.end << std::endl;
 				if (too_old(req.begin) || too_old(req.end))
 				{
-					//std::cout << "ReplayRequest " << req.req_id << ": can't be honored, too old" << std::endl;
+					std::cout << "ReplayRequest " << req.req_id << ": can't be honored, too old" << std::endl;
 					// can't honor request
 					ReplayResponse<Seq,MsgOut> & resp = replay_clients[i]->get_outbox_msg()->back();
 					resp.req_id = req.req_id;
@@ -453,7 +429,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut>
 				}
 				else if (too_new(req.begin) || too_new(req.end))
 				{
-					//std::cout << "ReplayRequest " << req.req_id << ": can't be honored, too new" << std::endl;
+					std::cout << "ReplayRequest " << req.req_id << ": can't be honored, too new" << std::endl;
 					// can't honor request
 					ReplayResponse<Seq,MsgOut> & resp = replay_clients[i]->get_outbox_msg()->back();
 					resp.status = 1;
@@ -464,12 +440,11 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut>
 				}
 				else
 				{
-					//std::cout << "ReplayRequest " << req.req_id << ": ok" << std::endl;
+					std::cout << "ReplayRequest " << req.req_id << ": ok" << std::endl;
 					auto it  = get_iterator(req.begin);
 					auto end = get_iterator(req.end  );
 					for ( ; it!=end ; ++it)
 					{
-						//std::cout << "ReplayRequest " << req.req_id << ": done" << std::endl;
 						ReplayResponse<Seq,MsgOut> & resp = replay_clients[i]->get_outbox_msg()->back();
 						resp.req_id  = req.req_id;
 						resp.status  = 0;

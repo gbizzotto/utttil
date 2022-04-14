@@ -13,7 +13,7 @@ int main()
 {
 	Request sent_by_client;
 	sent_by_client.type = Request::Type::NewOrder;
-	sent_by_client.seq        = utttil::max<decltype(sent_by_client.seq)>();
+	sent_by_client.seq        = decltype(sent_by_client.seq)(0);
 	sent_by_client.account_id = utttil::max<decltype(sent_by_client.account_id)>();
 	sent_by_client.req_id     = utttil::max<decltype(sent_by_client.req_id)>();
 	NewOrder &new_order = sent_by_client.new_order;
@@ -45,7 +45,7 @@ int main()
 
 	auto time_start = std::chrono::high_resolution_clock::now();
 	size_t msg_count = 0;
-	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(10)
+	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(1000)
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
@@ -54,6 +54,7 @@ int main()
 		//std::cout << "msg # " << msg_count << std::endl;
 		client_sptr->async_send(sent_by_client);
 		msg_count++;
+		++sent_by_client.seq;
 	}
 	sent_by_client.type = Request::Type::End;
 	client_sptr->async_send(sent_by_client);

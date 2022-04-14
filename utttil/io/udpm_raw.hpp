@@ -68,14 +68,14 @@ inline int client_socket_udpm(const std::string & addr, int port)
 	return sock;
 }
 
-
-struct udpm_client_raw : peer_raw
+template<typename DataT=int>
+struct udpm_client_raw : peer_raw<DataT>
 {
 	utttil::ring_buffer<char> inbox;
 
 	udpm_client_raw(const utttil::url & url)
-		: peer_raw(client_socket_udpm(url.host.c_str(), std::stoull(url.port)))
-		, inbox(peer_raw::inbox_capacity_bits)
+		: peer_raw<DataT>(client_socket_udpm(url.host.c_str(), std::stoull(url.port)))
+		, inbox(peer_raw<DataT>::inbox_capacity_bits)
 	{}
 
 	bool does_accept() override { return false; }
@@ -100,7 +100,8 @@ struct udpm_client_raw : peer_raw
 	}
 };
 
-struct udpm_server_raw : peer_raw
+template<typename DataT=int>
+struct udpm_server_raw : peer_raw<DataT>
 {
 	// writer
 	sockaddr_in sendto_addr;
@@ -110,10 +111,10 @@ struct udpm_server_raw : peer_raw
 	utttil::ring_buffer<char> outbox;
 
 	udpm_server_raw(const utttil::url & url)
-		: peer_raw(server_socket_udpm())
+		: peer_raw<DataT>(server_socket_udpm())
 		, sendto_addr_ptr(nullptr)
 		, sendto_addr_len(0)
-		, outbox(peer_raw::outbox_capacity_bits)
+		, outbox(peer_raw<DataT>::outbox_capacity_bits)
 	{
 	    memset(&sendto_addr, 0, sizeof(sendto_addr));
 	    sendto_addr.sin_family = AF_INET;

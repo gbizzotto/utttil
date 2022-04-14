@@ -21,16 +21,16 @@ namespace utttil {
 namespace io {
 
 
-template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct udpm_client_msg : peer_msg<MsgIn,MsgOut>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+struct udpm_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
-	udpm_client_raw raw;
+	udpm_client_raw<> raw;
 
 	utttil::ring_buffer<MsgIn> inbox_msg;
 
 	udpm_client_msg(const utttil::url & url)
 		: raw(url)
-		, inbox_msg(peer_msg<MsgIn,MsgOut>::inbox_msg_capacity_bits)
+		, inbox_msg(peer_msg<MsgIn,MsgOut,DataT>::inbox_msg_capacity_bits)
 	{}
 
 	bool does_accept() override { return false; }
@@ -79,8 +79,8 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut>
 	}
 };
 
-template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct udpm_server_msg : peer_msg<MsgIn,MsgOut>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+struct udpm_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
 	int fd;
 	bool good_;
@@ -95,13 +95,13 @@ struct udpm_server_msg : peer_msg<MsgIn,MsgOut>
 	utttil::ring_buffer<MsgOut> outbox_msg;
 
 	udpm_server_msg(const utttil::url & url)
-		: peer_msg<MsgIn,MsgOut>()
+		: peer_msg<MsgIn,MsgOut,DataT>()
 		, fd(server_socket_udpm())
 		, good_(true)
 		, sendto_addr_ptr(nullptr)
 		, sendto_addr_len(0)
 		, send_size(0)
-		, outbox_msg(peer_msg<MsgIn,MsgOut>::outbox_msg_capacity_bits)
+		, outbox_msg(peer_msg<MsgIn,MsgOut,DataT>::outbox_msg_capacity_bits)
 	{
 	    memset(&sendto_addr, 0, sizeof(sendto_addr));
 	    sendto_addr.sin_family = AF_INET;

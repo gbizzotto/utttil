@@ -30,13 +30,21 @@ int main()
 	seq_t next_seq(0);
 	size_t msgs = 0;
 	auto time_start = std::chrono::high_resolution_clock::now();
-	//for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(10)
-	//	; std::chrono::steady_clock::now() < deadline
-	//	; )
 	for (;;)
 	{
-		if (client_sptr->get_inbox_msg()->empty())
+		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+		while (client_sptr->get_inbox_msg()->empty())
 		{
+			if (deadline < std::chrono::steady_clock::now())
+			{
+				std::cout << "Timed out, buffers:" << std::endl;
+				auto & client_udpmr = *(utttil::io::udpmr_client_msg<Request,Request>*)(client_sptr.get());
+				for (auto it=client_udpmr.buffers.begin() ; it!=client_udpmr.buffers.end() ; ++it)
+				{
+					std::cout << it->get_first_seq() << " - " << it->get_last_seq() << std::endl;
+				}
+				return 1;
+			}
 			_mm_pause();
 			continue;
 		}
@@ -51,16 +59,20 @@ int main()
 			next_seq = req.seq;
 			++next_seq;
 		}
-		client_sptr->get_inbox_msg()->pop_front();
 		msgs++;
 
 		if (req.type == Request::Type::End)
 		{
-			std::cout << "Last Msg: #" << req.seq << std::endl;
+			std::cout << "Got End Msg: #" << req.seq << std::endl;
 			break;
 		}
+
+		if ((msgs & 0xFFFFF) == 0)
+			std::cout << '.' << std::flush;
+
+		client_sptr->get_inbox_msg()->pop_front();
 	}
-	std::cout << "Last Msg: #" << next_seq << std::endl;
+	std::cout << "next_seq: #" << next_seq << std::endl;
 	auto time_stop = std::chrono::high_resolution_clock::now();
 	auto elapsed = time_stop - time_start;
 	std::cout << msgs*1000000000 / elapsed.count() << " Request / s" << std::endl;

@@ -46,33 +46,41 @@ int main()
 	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
 	Request req;
-	auto time_start = std::chrono::high_resolution_clock::now();
 	size_t msg_count = 0;
-	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(10)
+	auto now = std::chrono::steady_clock::now();
+	auto time_start = std::chrono::high_resolution_clock::now();
+	for ( auto deadline = now + std::chrono::seconds(10), next_deadline = now
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
 		prepare_request(req);
 		server_sptr->async_send(req);
 		msg_count++;
+
+		//for ( next_deadline += std::chrono::microseconds(1)
+		//	; std::chrono::steady_clock::now() < next_deadline
+		//	; )
+		//{
+		//	_mm_pause();
+		//}
 	}
 	prepare_request(req);
 	req.type = Request::Type::End;
 	server_sptr->async_send(req);
 	msg_count++;
+	auto time_stop = std::chrono::high_resolution_clock::now();
 
 	std::cout << "Last msg: #" << req.seq << std::endl;
 
-	auto time_stop = std::chrono::high_resolution_clock::now();
 	auto elapsed = time_stop - time_start;
 	std::cout << msg_count*1000000000 / elapsed.count() << " Request / s" << std::endl;
 
 	// ensure client gets the termination message
-	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(5)
+	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(1)
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
-		sleep(1);
+		usleep(10);
 		prepare_request(req);
 		req.type = Request::Type::End;
 		server_sptr->async_send(req);

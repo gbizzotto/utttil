@@ -34,7 +34,8 @@ int main()
 	std::cout << "start timer" << std::endl;
 	size_t msgs = 0;
 	auto time_start = std::chrono::high_resolution_clock::now();
-	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(12)
+	Request::seq_type expected_seq(0);
+	for ( auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(1000)
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{
@@ -45,11 +46,13 @@ int main()
 		}
 		auto & msg = server_client_sptr->get_inbox_msg()->front();
 		msgs++;
+		ASSERT_MSG_ACT(msg.get_seq(), ==, expected_seq, "Bad seq", return 1);
 		//std::cout << "msg # " << msgs << std::endl;
 		if (msg.type == Request::Type::End)
 			break;
 		server_client_sptr->get_inbox_msg()->pop_front();
 
+		++expected_seq;
 		// reply
 		//std::vector<char> v(sent_by_server.begin(), sent_by_server.end());
 		//server_client_sptr->async_write(std::move(v));

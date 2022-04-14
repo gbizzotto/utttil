@@ -19,28 +19,28 @@ namespace utttil {
 namespace io {
 
 
-template<typename MsgIn, typename MsgOut>
-struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
+template<typename MsgIn, typename MsgOut, typename DataT=int>
+struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
-	tcp_socket_raw raw;
+	tcp_socket_raw<DataT> raw;
 
 	utttil::ring_buffer<MsgOut> outbox_msg;
 	utttil::ring_buffer<MsgIn >  inbox_msg;
 
 	tcp_socket_msg(int fd)
 		: raw(fd)
-		, outbox_msg(peer_msg<MsgIn,MsgOut>::outbox_msg_capacity_bits)
-		, inbox_msg (peer_msg<MsgIn,MsgOut>:: inbox_msg_capacity_bits)
+		, outbox_msg(peer_msg<MsgIn,MsgOut,DataT>::outbox_msg_capacity_bits)
+		, inbox_msg (peer_msg<MsgIn,MsgOut,DataT>:: inbox_msg_capacity_bits)
 	{}
 	tcp_socket_msg(const utttil::url & url)
 		: raw(url)
-		, outbox_msg(peer_msg<MsgIn,MsgOut>::outbox_msg_capacity_bits)
-		, inbox_msg (peer_msg<MsgIn,MsgOut>:: inbox_msg_capacity_bits)
+		, outbox_msg(peer_msg<MsgIn,MsgOut,DataT>::outbox_msg_capacity_bits)
+		, inbox_msg (peer_msg<MsgIn,MsgOut,DataT>:: inbox_msg_capacity_bits)
 	{}
-	tcp_socket_msg(tcp_socket_raw && other)
+	tcp_socket_msg(tcp_socket_raw<DataT> && other)
 		: raw(std::move(other))
-		, outbox_msg(peer_msg<MsgIn,MsgOut>::outbox_msg_capacity_bits)
-		, inbox_msg (peer_msg<MsgIn,MsgOut>:: inbox_msg_capacity_bits)
+		, outbox_msg(peer_msg<MsgIn,MsgOut,DataT>::outbox_msg_capacity_bits)
+		, inbox_msg (peer_msg<MsgIn,MsgOut,DataT>:: inbox_msg_capacity_bits)
 	{}
 
 	bool does_accept() override { return false; }
@@ -66,6 +66,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 	{
 		auto & outbox = *raw.get_outbox();
 
+		//bool ok = false;
 		while ( ! outbox_msg.empty())
 		{
 			MsgOut & msg = outbox_msg.front();
@@ -76,9 +77,9 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 			size_preview_serializer << msg_size; // add size field
 			size_t total_size = size_preview_serializer.write.size();
 
-			if (outbox.free_size() < total_size) {
-				return;
-			}
+			if (outbox.free_size() < total_size)
+				break;
+
 			try {
 				auto stretch1 = outbox.back_stretch();
 				auto stretch2 = outbox.back_stretch_2();
@@ -87,16 +88,23 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 				s << msg;
 				outbox.advance_back(s.write.size());
 				outbox_msg.pop_front();
+				//ok = true;
 			} catch (utttil::srlz::device::stream_end_exception &) {
 				std::cout << __func__ << " stream_end_exception" << std::endl;
 				return;
 			}
 		}
+		//if (ok)
+		//	std::cout << "tcp msg packed, in total " << outbox_msg.front_ << " msgs" << std::endl;
 	}
 	void unpack() override
 	{
 		auto & inbox = *raw.get_inbox();
 
+		//if (inbox_msg.full())
+		//	std::cout << "TCP inbox_msg is full" << std::endl;
+
+		//bool ok = false;
 		while ( ! inbox_msg.full() && ! inbox.empty())
 		{
 			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ring_buffer_reader(inbox, inbox.size()));
@@ -110,7 +118,6 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 				break;
 			}
 			total_size = msg_size + deserializer.read.size();
-			//assert(msg_size == 45);
 			if (total_size > inbox.size()) {
 				break;
 			}
@@ -125,7 +132,10 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 			assert(deserializer.read.size() == total_size);
 			inbox_msg.advance_back(1);
 			inbox.advance_front(deserializer.read.size());
+			//ok = true;
 		}
+		//if (ok)
+		//	std::cout << "tcp msg unpacked, in total " << inbox_msg.back_ << " msgs" << std::endl;
 	}
 	void async_send(const MsgOut & msg) override
 	{
@@ -137,16 +147,16 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut>
 	}
 };
 
-template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t>
-struct tcp_server_msg : peer_msg<MsgIn,MsgOut>
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+struct tcp_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
-	tcp_server_raw raw;
+	tcp_server_raw<> raw;
 
-	utttil::ring_buffer<std::shared_ptr<peer_msg<MsgIn,MsgOut>>> accept_inbox;
+	utttil::ring_buffer<std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>>> accept_inbox;
 
 	tcp_server_msg(const utttil::url & url)
 		: raw(url)
-		, accept_inbox(peer_msg<MsgIn,MsgOut>::accept_inbox_capacity_bits)
+		, accept_inbox(peer_msg<MsgIn,MsgOut,DataT>::accept_inbox_capacity_bits)
 	{}
 
 	bool does_accept() override { return true ; }
@@ -156,16 +166,16 @@ struct tcp_server_msg : peer_msg<MsgIn,MsgOut>
 	void close() override { return raw.close(); }
 	bool good() const override { return raw.good(); }
 
-	utttil::ring_buffer<std::shared_ptr<peer_msg<MsgIn,MsgOut>>> * get_accept_inbox() override { return &accept_inbox; }
+	utttil::ring_buffer<std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>>> * get_accept_inbox() override { return &accept_inbox; }
 
 	std::shared_ptr<peer> accept() override
 	{
 		std::shared_ptr<peer> new_raw_peer = raw.accept();
 		if ( ! new_raw_peer)
 			return nullptr;
-		auto new_tcp_socket = std::dynamic_pointer_cast<tcp_socket_raw>(new_raw_peer);
+		auto new_tcp_socket = std::dynamic_pointer_cast<tcp_socket_raw<DataT>>(new_raw_peer);
 		raw.accept_inbox.pop_front();
-		auto new_peer_sptr = std::make_shared<tcp_socket_msg<MsgIn,MsgOut>>(std::move(*new_tcp_socket));
+		auto new_peer_sptr = std::make_shared<tcp_socket_msg<MsgIn,MsgOut,DataT>>(std::move(*new_tcp_socket));
 		accept_inbox.push_back(new_peer_sptr);
 		return new_peer_sptr;
 	}

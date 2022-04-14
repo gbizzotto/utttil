@@ -98,22 +98,22 @@ inline int client_socket_tcp(const std::string & addr, int port)
 	return fd;
 }
 
-
-struct tcp_socket_raw : peer_raw
+template<typename DataT=int>
+struct tcp_socket_raw : peer_raw<DataT>
 {
 	utttil::ring_buffer<char> outbox;
 	utttil::ring_buffer<char>  inbox;
 
 	tcp_socket_raw(int fd_)
-		: peer_raw(fd_)
-		, outbox    (peer_raw::outbox_capacity_bits)
-		, inbox     (peer_raw:: inbox_capacity_bits)
+		: peer_raw<DataT>(fd_)
+		, outbox    (peer_raw<DataT>::outbox_capacity_bits)
+		, inbox     (peer_raw<DataT>:: inbox_capacity_bits)
 	{}
 	tcp_socket_raw(const utttil::url & url)
 		: tcp_socket_raw(client_socket_tcp(url.host.c_str(), std::stoull(url.port))) // delegate
 	{}
 	tcp_socket_raw(tcp_socket_raw && other)
-		: peer_raw(std::move(other))
+		: peer_raw<DataT>(std::move(other))
 		, outbox(std::move(other.outbox))
 		,  inbox(std::move(other. inbox))
 	{}
@@ -149,14 +149,14 @@ struct tcp_socket_raw : peer_raw
 			return 0;
 		//print_outbox();
 		auto stretch = outbox.front_stretch();
-		std::get<1>(stretch) = std::min(1400ul, std::get<1>(stretch));
+		std::get<1>(stretch) = std::min(1400ul, std::get<1>(stretch)); // this seems to be an optimal size for performance
 		//std::cout << "Printint from outbox: " << std::hex;
 		//for(const char *ptr = std::get<0>(stretch), *end=ptr+std::get<1>(stretch) ; ptr<end ; ptr++)
 		//	std::cout << (unsigned int)*ptr << ' ';
 		//std::cout << std::endl << std::dec;
 		int count = ::send(this->fd, std::get<0>(stretch), std::get<1>(stretch), 0);
 		if (count > 0) {
-			//std::cout << "wrote " << count << std::endl;
+			//std::cout << "tcp raw wrote, in total " << outbox.back_ << " or ~ " << outbox.back_/33 << " msgs" << std::endl;
 			outbox.advance_front(count);
 			//print_outbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
@@ -174,8 +174,8 @@ struct tcp_socket_raw : peer_raw
 		//std::cout << "read() recv() up to " << std::get<1>(stretch) << " B" << std::endl;
 		int count = ::read(this->fd, std::get<0>(stretch), std::get<1>(stretch));
 		if (count > 0) {
-			//std::cout << "read " << count << std::endl;
 			inbox.advance_back(count);
+			//std::cout << "tcp raw read, in total: " << inbox.back_ << " or ~ " << inbox.back_/33 << " msgs" << std::endl;
 			//print_inbox();
 			//print_inbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
@@ -210,23 +210,24 @@ struct tcp_socket_raw : peer_raw
 	}
 };
 
-struct tcp_server_raw : peer_raw
+template<typename DataT=int>
+struct tcp_server_raw : peer_raw<DataT>
 {
 	// acceptor
 	sockaddr_in accept_client_addr;
 	socklen_t client_addr_len = sizeof(sockaddr_in);
-	utttil::ring_buffer<std::shared_ptr<peer_raw>> accept_inbox;
+	utttil::ring_buffer<std::shared_ptr<peer_raw<DataT>>> accept_inbox;
 
 	tcp_server_raw(const utttil::url & url)
-		: peer_raw(server_socket_tcp(std::stoull(url.port)))
-		, accept_inbox(peer_raw::accept_inbox_capacity_bits)
+		: peer_raw<DataT>(server_socket_tcp(std::stoull(url.port)))
+		, accept_inbox(peer_raw<DataT>::accept_inbox_capacity_bits)
 	{}
 
 	bool does_accept() override { return true ; }
 	bool does_read  () override { return false; }
 	bool does_write () override { return false; }
 
-	utttil::ring_buffer<std::shared_ptr<peer_raw>> * get_accept_inbox() override { return &accept_inbox; }
+	utttil::ring_buffer<std::shared_ptr<peer_raw<DataT>>> * get_accept_inbox() override { return &accept_inbox; }
 
 	std::shared_ptr<peer> accept() override
 	{
@@ -239,7 +240,7 @@ struct tcp_server_raw : peer_raw
 			}
 			return nullptr;
 		}
-		auto new_peer_sptr = std::make_shared<tcp_socket_raw>(new_fd);
+		auto new_peer_sptr = std::make_shared<tcp_socket_raw<DataT>>(new_fd);
 		accept_inbox.push_back(new_peer_sptr);
 		return new_peer_sptr;
 	}
