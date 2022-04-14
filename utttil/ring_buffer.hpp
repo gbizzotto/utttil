@@ -42,8 +42,8 @@ struct ring_buffer
 		iterator & operator--() { --pos; return *this; }
 		T & operator* () { return  rb->data[pos & rb->Mask]; }
 		T * operator->() { return &rb->data[pos & rb->Mask]; }
-		bool operator==(const iterator & other) { return (pos & rb->Mask) == (other.pos & rb->Mask); }
-		bool operator!=(const iterator & other) { return (pos & rb->Mask) != (other.pos & rb->Mask); }
+		bool operator==(const iterator & other) { return (pos) == (other.pos); }
+		bool operator!=(const iterator & other) { return (pos) != (other.pos); }
 		iterator operator+(size_t s) const { return iterator{rb, pos+s}; }
 		int operator-(const iterator & other) const { return other.pos - pos; }
 	};
