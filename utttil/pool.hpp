@@ -59,7 +59,6 @@ struct fixed_pool
 
 		collection[idx].next_index = first_free;
 		first_free = idx;
-
 		--size_;
 	}
 };
