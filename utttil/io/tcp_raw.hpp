@@ -111,7 +111,9 @@ struct tcp_socket_raw : peer_raw<DataT>
 	{}
 	tcp_socket_raw(const utttil::url & url)
 		: tcp_socket_raw(client_socket_tcp(url.host.c_str(), std::stoull(url.port))) // delegate
-	{}
+	{
+		std::cout << "fd: " << this->fd << " url: " << url.to_string() << std::endl;
+	}
 	tcp_socket_raw(tcp_socket_raw && other)
 		: peer_raw<DataT>(std::move(other))
 		, outbox(std::move(other.outbox))
@@ -144,23 +146,15 @@ struct tcp_socket_raw : peer_raw<DataT>
 	
 	int write() override
 	{
-		//print_outbox();
 		if (outbox.empty())
 			return 0;
-		//print_outbox();
 		auto stretch = outbox.front_stretch();
 		std::get<1>(stretch) = std::min(1400ul, std::get<1>(stretch)); // this seems to be an optimal size for performance
-		//std::cout << "Printint from outbox: " << std::hex;
-		//for(const char *ptr = std::get<0>(stretch), *end=ptr+std::get<1>(stretch) ; ptr<end ; ptr++)
-		//	std::cout << (unsigned int)*ptr << ' ';
-		//std::cout << std::endl << std::dec;
 		int count = ::send(this->fd, std::get<0>(stretch), std::get<1>(stretch), 0);
 		if (count > 0) {
-			//std::cout << "tcp raw wrote, in total " << outbox.back_ << " or ~ " << outbox.back_/33 << " msgs" << std::endl;
 			outbox.advance_front(count);
-			//print_outbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
+			std::cout << "tcp_socket_raw sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
 		}
 		return count;
@@ -169,17 +163,12 @@ struct tcp_socket_raw : peer_raw<DataT>
 	{
 		if (inbox.full())
 			return 0;
-		//print_inbox();
 		auto stretch = inbox.back_stretch();
-		//std::cout << "read() recv() up to " << std::get<1>(stretch) << " B" << std::endl;
 		int count = ::read(this->fd, std::get<0>(stretch), std::get<1>(stretch));
 		if (count > 0) {
 			inbox.advance_back(count);
-			//std::cout << "tcp raw read, in total: " << inbox.back_ << " or ~ " << inbox.back_/33 << " msgs" << std::endl;
-			//print_inbox();
-			//print_inbox();
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
+			std::cout << "tcp_socket_raw read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
 			return count;
 		}
@@ -188,8 +177,6 @@ struct tcp_socket_raw : peer_raw<DataT>
 
 	void async_write(const char * data, size_t len) override
 	{
-		//std::cout << "async_write() outbox size: " << outbox.size() << std::endl;
-		
 		while(len > 0)
 		{
 			while (outbox.full())
@@ -206,7 +193,6 @@ struct tcp_socket_raw : peer_raw<DataT>
 			data += len_to_write;
 			len  -= len_to_write;
 		}
-		//std::cout << "async_write: " << data.size() << std::endl;
 	}
 };
 
@@ -221,7 +207,9 @@ struct tcp_server_raw : peer_raw<DataT>
 	tcp_server_raw(const utttil::url & url)
 		: peer_raw<DataT>(server_socket_tcp(std::stoull(url.port)))
 		, accept_inbox(peer_raw<DataT>::accept_inbox_capacity_bits)
-	{}
+	{
+		std::cout << "fd: " << this->fd << " url: " << url.to_string() << std::endl;
+	}
 
 	bool does_accept() override { return true ; }
 	bool does_read  () override { return false; }

@@ -103,6 +103,8 @@ struct udpm_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 		, send_size(0)
 		, outbox_msg(peer_msg<MsgIn,MsgOut,DataT>::outbox_msg_capacity_bits)
 	{
+		std::cout << "fd: " << fd << " url: " << url.to_string() << std::endl;
+
 	    memset(&sendto_addr, 0, sizeof(sendto_addr));
 	    sendto_addr.sin_family = AF_INET;
 	    sendto_addr.sin_addr.s_addr = inet_addr(url.host.c_str());
@@ -136,7 +138,7 @@ struct udpm_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 			assert(count == send_size);
 			send_size = 0;
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
+			std::cout << this->fd << " udpm_server_msg sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
 		}
 		return count;
@@ -166,7 +168,7 @@ struct udpm_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 				send_size += s.write.size();
 				outbox_msg.pop_front();
 			} catch (utttil::srlz::device::stream_end_exception &) {
-				std::cout << "send() stream_end_exception" << std::endl;
+				std::cout << this->fd << " udpm_server_msg send() stream_end_exception" << std::endl;
 				return;
 			}
 		}

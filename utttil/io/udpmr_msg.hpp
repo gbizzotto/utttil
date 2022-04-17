@@ -204,8 +204,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 		, inbox_msg(12)
 		, tcp_req_id(0)
 	{
-		std::cout << "udpmr_client_msg() udp fd: " << fd << std::endl;
-		std::cout << "udpmr_client_msg() tcp fd: " << replay_client.raw.fd << std::endl;
+		std::cout << "fd: " << fd << " url: " << url_udp.to_string() << std::endl;
 	}
 
 	bool does_accept() override { return false; }
@@ -260,7 +259,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 				buffers.advance_back(1);	
 			}
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << __FILE__ << ":" << __LINE__ << "read() good = false because of errno: " << errno << " - " << strerror(errno) << " fd: " << this->fd << std::endl;
+			std::cout << this->fd << " udpmr_client_msg read() good = false because of errno: " << errno << " - " << strerror(errno) << " fd: " << this->fd << std::endl;
 			this->good_ = false;
 		}
 		return count;
@@ -282,7 +281,6 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			if (req.status != 0)
 			{
 				std::cout << __FILE__ << ":" << __LINE__ << " unrecoverable gap status=0" << std::endl;
-				// unrecoverable gap
 				this->good_ = false;
 				close();
 				break;
@@ -355,18 +353,23 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 	std::deque<std::shared_ptr<tcp_socket_msg<ReplayRequest<Seq>,ReplayResponse<Seq,MsgOut>,DataT>>> replay_clients;
 
 	utttil::ring_buffer<MsgOut> outbox_msg;
+	typename utttil::ring_buffer<MsgOut>::iterator sent_it;
 
 	udpmr_server_msg(const utttil::url & url_udp, const utttil::url & url_tcp)
 		: multicast_server(url_udp)
 		, replay_server(url_tcp)
 		, outbox_msg(24) // make it allocate a fixed size in bytes using sizeof() and such?
-	{}
+		, sent_it(outbox_msg.begin())
+	{
+		//std::cout << "fd: " << multicast_server.fd << " url: " << url_udp.to_string() << std::endl;
+		//std::cout << "fd: " << replay_server   .fd << " url: " << url_tcp.to_string() << std::endl;
+	}
 
 	bool does_accept() override { return true ; }
 	bool does_read  () override { return true ; }
 	bool does_write () override { return true ; }
 
-	//utttil::ring_buffer<MsgOut> * get_outbox_msg  () override { return &this->outbox_msg; }
+	utttil::ring_buffer<MsgOut> * get_outbox_msg  () override { return &this->outbox_msg; }
 
 	void close() override { multicast_server.close(); replay_server.close(); for (auto & c:replay_clients) c->close(); }
 	bool good() const override { return multicast_server.good() & replay_server.good(); }
@@ -403,6 +406,8 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 
 	void pack() override
 	{
+		while(sent_it != outbox_msg.end())
+			multicast_server.get_outbox_msg()->push_back(*sent_it++);
 		multicast_server.pack();
 		for (int i=replay_clients.size()-1 ; i>=0 ; --i)
 			replay_clients[i]->pack();
@@ -456,9 +461,11 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 			}
 		}
 		if (outbox_msg.free_size() < outbox_msg.capacity()/1024) // totally arbitrary number
-			outbox_msg.advance_front(outbox_msg.capacity()/1024);
+			if (outbox_msg.begin() + outbox_msg.capacity()/1024 <= sent_it)
+				outbox_msg.advance_front(outbox_msg.capacity()/1024);
 	}
 
+	/*
 	virtual void async_send(const MsgOut & msg)
 	{
 		outbox_msg.push_back(msg);
@@ -469,6 +476,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 		outbox_msg.push_back(msg);	
 		multicast_server.async_send(std::move(msg));
 	}
+	*/
 
 	bool too_old(Seq seq)
 	{

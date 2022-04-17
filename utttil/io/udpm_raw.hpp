@@ -93,7 +93,7 @@ struct udpm_client_raw : peer_raw<DataT>
 		if (count > 0) {
 			inbox.advance_back(count);
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
+			std::cout << this->fd << " udpm_client_raw read() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
 		}
 		return count;
@@ -138,7 +138,7 @@ struct udpm_server_raw : peer_raw<DataT>
 		if (count > 0) {
 			outbox.advance_front(count);
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
+			std::cout << this->fd << " udpm_server_raw sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
 		}
 		return count;

@@ -49,7 +49,7 @@ int main()
 	size_t msg_count = 0;
 	auto now = std::chrono::steady_clock::now();
 	auto time_start = std::chrono::high_resolution_clock::now();
-	for ( auto deadline = now + std::chrono::seconds(10), next_deadline = now
+	for ( auto deadline = now + std::chrono::seconds(10)//, next_deadline = now
 		; std::chrono::steady_clock::now() < deadline
 		; )
 	{

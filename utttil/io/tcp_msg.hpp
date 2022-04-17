@@ -66,7 +66,6 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 	{
 		auto & outbox = *raw.get_outbox();
 
-		//bool ok = false;
 		while ( ! outbox_msg.empty())
 		{
 			MsgOut & msg = outbox_msg.front();
@@ -88,23 +87,16 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 				s << msg;
 				outbox.advance_back(s.write.size());
 				outbox_msg.pop_front();
-				//ok = true;
 			} catch (utttil::srlz::device::stream_end_exception &) {
 				std::cout << __func__ << " stream_end_exception" << std::endl;
 				return;
 			}
 		}
-		//if (ok)
-		//	std::cout << "tcp msg packed, in total " << outbox_msg.front_ << " msgs" << std::endl;
 	}
 	void unpack() override
 	{
 		auto & inbox = *raw.get_inbox();
 
-		//if (inbox_msg.full())
-		//	std::cout << "TCP inbox_msg is full" << std::endl;
-
-		//bool ok = false;
 		while ( ! inbox_msg.full() && ! inbox.empty())
 		{
 			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ring_buffer_reader(inbox, inbox.size()));
@@ -132,10 +124,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 			assert(deserializer.read.size() == total_size);
 			inbox_msg.advance_back(1);
 			inbox.advance_front(deserializer.read.size());
-			//ok = true;
 		}
-		//if (ok)
-		//	std::cout << "tcp msg unpacked, in total " << inbox_msg.back_ << " msgs" << std::endl;
 	}
 	void async_send(const MsgOut & msg) override
 	{
@@ -150,7 +139,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
 struct tcp_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 {
-	tcp_server_raw<> raw;
+	tcp_server_raw<DataT> raw;
 
 	utttil::ring_buffer<std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>>> accept_inbox;
 

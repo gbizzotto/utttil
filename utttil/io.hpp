@@ -102,7 +102,7 @@ struct context
 			std::cout << "bind failed" << std::endl;
 			return nullptr;
 		}
-		std::cout << "bound" << std::endl;
+		std::cout << "bound " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
@@ -123,7 +123,7 @@ struct context
 			std::cout << "bind failed" << std::endl;
 			return nullptr;
 		}
-		std::cout << "bound" << std::endl;
+		std::cout << "bound " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
@@ -132,7 +132,7 @@ struct context
 		>
 	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> bind_msg(const utttil::url url, const utttil::url=url(""))
 	{
-		std::shared_ptr<peer_msg<MsgIn,MsgOut>> peer_sptr;
+		std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> peer_sptr;
 		if (url.protocol == "tcp")
 			peer_sptr = std::make_shared<tcp_server_msg<MsgIn,MsgOut,DataT>>(url);
 		else if (url.protocol == "udpm")
@@ -142,7 +142,7 @@ struct context
 			std::cout << "bind failed" << std::endl;
 			return nullptr;
 		}
-		std::cout << "bound" << std::endl;
+		std::cout << "bound " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
@@ -160,7 +160,7 @@ struct context
 			std::cout << "connect failed" << std::endl;
 			return nullptr;
 		}
-		std::cout << "connected" << std::endl;
+		std::cout << "connected " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
@@ -181,7 +181,7 @@ struct context
 			std::cout << "connect failed" << std::endl;
 			return nullptr;
 		}
-		std::cout << "connected" << std::endl;
+		std::cout << "connected " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
@@ -200,7 +200,7 @@ struct context
 			std::cout << "connect failed" << std::endl;
 			return nullptr;
 		}
-		std::cout << "connected" << std::endl;
+		std::cout << "connected " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
