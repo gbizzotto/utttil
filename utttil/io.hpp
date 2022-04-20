@@ -229,6 +229,7 @@ struct context
 				std::cout << "accepted" << std::endl;
 				add(new_peer_sptr);
 			}
+			sleep(1);
 		}
 	}
 	void loop_read()

@@ -269,11 +269,12 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 
 	void unpack() override
 	{
-		if (inbox_msg.full())
-			return;
-
 		// handle TCP msgs
 		replay_client.unpack();
+
+		if (inbox_msg.full()) {
+			return;
+		}
 
 		while( ! replay_client.inbox_msg.empty())
 		{
@@ -406,7 +407,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 
 	void pack() override
 	{
-		while(sent_it != outbox_msg.end())
+		while(sent_it < outbox_msg.end() && ! multicast_server.get_outbox_msg()->full())
 			multicast_server.get_outbox_msg()->push_back(*sent_it++);
 		multicast_server.pack();
 		for (int i=replay_clients.size()-1 ; i>=0 ; --i)
