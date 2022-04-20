@@ -249,8 +249,8 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			if (next_expected_seq <= seq)
 			{
 				if (next_expected_seq < seq) {
-					std::cout << "Gap: " << next_expected_seq << " - " << seq << std::endl;
 					request_replay(next_expected_seq, seq);
+					std::cout << "Gap: " << next_expected_seq << " - " << seq << std::endl;
 				} else if (seq < next_expected_seq) {
 					std::cout << "Frame is out of order" << std::endl;
 				}
@@ -370,7 +370,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 	bool does_read  () override { return true ; }
 	bool does_write () override { return true ; }
 
-	utttil::ring_buffer<MsgOut> * get_outbox_msg  () override { return &this->outbox_msg; }
+	utttil::ring_buffer<MsgOut> * get_outbox_msg  () override { return &outbox_msg; }
 
 	void close() override { multicast_server.close(); replay_server.close(); for (auto & c:replay_clients) c->close(); }
 	bool good() const override { return multicast_server.good() & replay_server.good(); }

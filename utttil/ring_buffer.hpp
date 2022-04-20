@@ -16,13 +16,15 @@ struct ring_buffer
 	size_t Mask;
 
 	std::unique_ptr<T[]> data;
-	std::atomic_size_t front_ = 0;
-	std::atomic_size_t back_ = 0;
+	std::atomic_size_t front_;
+	std::atomic_size_t back_;
 
 	ring_buffer(int size_in_bits)
 		: Capacity(1 << size_in_bits)
 		, Mask(Capacity - 1)
 		, data(std::make_unique<T[]>(Capacity))
+		, front_(0)
+		, back_(0)
 	{}
 	ring_buffer(ring_buffer && other)
 		: Capacity(other.Capacity)
