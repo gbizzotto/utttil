@@ -25,7 +25,7 @@ CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I
 
 LD=$(CXX)
 LDFLAGS = -L $(DEPDIR)/liburing/src/
-LDLIBS = -pthread -lssl -lcrypto -luring -lasan
+LDLIBS = -pthread -luring -lasan
 #-L$(DEPDIR)/abseil-cpp/build/absl/container/ -L$(DEPDIR)/abseil-cpp/build/absl/synchronization/ -L$(DEPDIR)/abseil-cpp/build/absl/time
 #-labsl_hashtablez_sampler -labsl_synchronization -labsl_time
 
