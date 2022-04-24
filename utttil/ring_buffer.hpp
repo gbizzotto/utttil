@@ -81,7 +81,7 @@ struct ring_buffer
 
 	void clear()
 	{
-		front_ = back_;
+		front_ = back_.load();
 	}
 	void reset()
 	{
