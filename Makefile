@@ -21,7 +21,7 @@ CFLAGS_debug = -g -Wall -Wextra -fsanitize=address,leak
 CFLAGS_perf = -O3 -DNDEBUG
 CFLAGS_release = -g -O3 -fno-omit-frame-pointer -DNDEBUG
 EXTRA_CFLAGS = 
-CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I$(DEPDIR)/liburing/src/include -I. -I$(SRCDIR)/ -DBOOST_ERROR_CODE_HEADER_ONLY  -DBOOST_BIND_GLOBAL_PLACEHOLDERS
+CFLAGS = $(CFLAGS_$(TYPE)) $(EXTRA_CFLAGS) --std=c++17 -I$(DEPDIR)/abseil-cpp -I$(DEPDIR)/liburing/src/include -I. -I$(SRCDIR)/ 
 
 LD=$(CXX)
 LDFLAGS = -L $(DEPDIR)/liburing/src/
