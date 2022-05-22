@@ -36,6 +36,7 @@ struct ReplayRequest
 	{}
 	ReplayRequest & operator=(const ReplayRequest & other)
 	{
+		req_id     = other.req_id    ;
 		begin      = other.begin     ;
 		end        = other.end       ;
 		return *this;
@@ -47,7 +48,8 @@ struct ReplayRequest
 		s << req_id
 		  << begin
 		  << end
-		  << std::flush;
+		  << std::flush
+		  ;
 	}
 	template<typename Deserializer>
 	void deserialize(Deserializer && s)
@@ -173,6 +175,10 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			try {
 				deserializer >> msg_size;
 				deserializer >> msg;
+				if (msg.get_seq() == 0u)
+				{
+					std::cout << "get_last_seq() " << msg << std::endl;
+				}
 				last_seq = msg.get_seq();
 			} catch (utttil::srlz::device::stream_end_exception &) {
 				std::cout << __LINE__ << " >> failed" << std::endl;
@@ -245,6 +251,11 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 		if (count > 0)
 		{
 			f.size = count;
+			if (f.get_last_seq() < next_expected_seq)
+			{
+				std::cout << "f.get_last_seq() <= next_expected_seq, dropping frame" << std::endl;
+				return 0;
+			}
 			Seq seq = f.get_first_seq();
 			if (next_expected_seq <= seq)
 			{
@@ -313,11 +324,12 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			if (inbox_msg.free_size() < msg_count)
 				break;
 	
+			auto checkpoint = inbox_msg.back_.load();
 			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ptr_reader(&f.data[0], f.size));
 			try {
+				size_t msg_size;
 				for (auto i = msg_count ; (decltype(i))0<i ; --i)
 				{
-					size_t msg_size;
 					deserializer >> msg_size;
 					auto & msg = inbox_msg.back();
 					deserializer >> msg;
@@ -325,9 +337,10 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 				}
 				next_ordered_seq += msg_count;
 			} catch (utttil::srlz::device::stream_end_exception &) {
-				std::cout << __FILE__ << ":" << __LINE__ << ">> failed" << std::endl;
-				std::cout << "Gap (bad frame): " << next_ordered_seq << " - " << next_ordered_seq + msg_count << std::endl;
-				request_replay(next_ordered_seq, next_ordered_seq + msg_count);
+				std::cout << __FILE__ << ":" << __LINE__ << " >> failed" << std::endl;
+				std::cout << "Discarding bad frame with seq " << next_ordered_seq << std::endl;
+				//request_replay(next_ordered_seq, next_ordered_seq + msg_count);
+				inbox_msg.back_.store(checkpoint);
 			}
 			if (deserializer.read.size() != f.size)
 				std::cout << "Extraneous data in datagram" << std::endl;
@@ -466,18 +479,14 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 				outbox_msg.advance_front(outbox_msg.capacity()/1024);
 	}
 
-	/*
 	virtual void async_send(const MsgOut & msg)
 	{
 		outbox_msg.push_back(msg);
-		multicast_server.async_send(msg);
 	}
 	virtual void async_send(MsgOut && msg)
 	{
-		outbox_msg.push_back(msg);	
-		multicast_server.async_send(std::move(msg));
+		outbox_msg.push_back(std::move(msg));	
 	}
-	*/
 
 	bool too_old(Seq seq)
 	{

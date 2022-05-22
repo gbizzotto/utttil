@@ -33,7 +33,7 @@ template<class T, class Enable = void>
 struct has_seq : std::false_type {};
 
 template<class T>
-struct has_seq<T, typename enable_if_type<typename T::seq_type>::type> : std::true_type
+struct has_seq<T, typename T::seq_type> : std::true_type
 {};
 
 
@@ -99,38 +99,35 @@ struct context
 			peer_sptr = std::make_shared<udpm_server_raw<DataT>>(url);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
-			std::cout << "bind failed" << std::endl;
+			std::cout << "bind failed: " << strerror(errno) << std::endl;
 			return nullptr;
 		}
 		std::cout << "bound " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
-	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int
-		,typename std::enable_if<has_seq<MsgIn,void>{},int>::type = 0
-		>
-	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> bind_msg(const utttil::url url, const utttil::url url_replay=url(""))
+	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> bind_msg(const utttil::url url, const utttil::url url_replay)
 	{
 		std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> peer_sptr;
-		if (url.protocol == "tcp")
-			peer_sptr = std::make_shared<tcp_server_msg<MsgIn,MsgOut,DataT>>(url);
-		else if (url.protocol == "udpm")
-			peer_sptr = std::make_shared<udpm_server_msg<MsgIn,MsgOut,DataT>>(url);
-		else if (url.protocol == "udpmr")
+		//if (url.protocol == "tcp")
+		//	peer_sptr = std::make_shared<tcp_server_msg<MsgIn,MsgOut,DataT>>(url);
+		//else if (url.protocol == "udpm")
+		//	peer_sptr = std::make_shared<udpm_server_msg<MsgIn,MsgOut,DataT>>(url);
+		//else
+		if (url.protocol == "udpmr")
 			peer_sptr = std::make_shared<udpmr_server_msg<MsgIn,MsgOut,DataT>>(url, url_replay);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
-			std::cout << "bind failed" << std::endl;
+			std::cout << "bind failed: " << strerror(errno) << std::endl;
 			return nullptr;
 		}
 		std::cout << "bound " << url.to_string() << std::endl;
 		add(peer_sptr);
 		return peer_sptr;
 	}
-	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int
-		,typename std::enable_if< ! has_seq<MsgIn,void>{},int>::type = 0
-		>
-	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> bind_msg(const utttil::url url, const utttil::url=url(""))
+	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> bind_msg(const utttil::url url)
 	{
 		std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> peer_sptr;
 		if (url.protocol == "tcp")
@@ -139,7 +136,7 @@ struct context
 			peer_sptr = std::make_shared<udpm_server_msg<MsgIn,MsgOut,DataT>>(url);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
-			std::cout << "bind failed" << std::endl;
+			std::cout << "bind failed: " << strerror(errno) << std::endl;
 			return nullptr;
 		}
 		std::cout << "bound " << url.to_string() << std::endl;
@@ -164,17 +161,16 @@ struct context
 		add(peer_sptr);
 		return peer_sptr;
 	}
-	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int
-		,typename std::enable_if<has_seq<MsgIn,void>{},int>::type = 0
-		>
-	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> connect_msg(const utttil::url url, const utttil::url url_replay=url(""))
+	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> connect_msg(const utttil::url url, const utttil::url url_replay)
 	{
 		std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> peer_sptr;
-		if (url.protocol == "tcp")
-			peer_sptr = std::make_shared<tcp_socket_msg<MsgIn,MsgOut,DataT>>(url);
-		else if (url.protocol == "udpm")
-			peer_sptr = std::make_shared<udpm_client_msg<MsgIn,MsgOut,DataT>>(url);
-		else if (url.protocol == "udpmr")
+		//if (url.protocol == "tcp")
+		//	peer_sptr = std::make_shared<tcp_socket_msg<MsgIn,MsgOut,DataT>>(url);
+		//else if (url.protocol == "udpm")
+		//	peer_sptr = std::make_shared<udpm_client_msg<MsgIn,MsgOut,DataT>>(url);
+		//else
+		if (url.protocol == "udpmr")
 			peer_sptr = std::make_shared<udpmr_client_msg<MsgIn,MsgOut,DataT>>(url, url_replay);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
@@ -185,10 +181,8 @@ struct context
 		add(peer_sptr);
 		return peer_sptr;
 	}
-	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int
-		,typename std::enable_if< ! has_seq<MsgIn,void>{},int>::type = 0
-		>
-	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> connect_msg(const utttil::url url, const utttil::url=url(""))
+	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> connect_msg(const utttil::url url)
 	{
 		std::shared_ptr<peer_msg<MsgIn,MsgOut>> peer_sptr;
 		if (url.protocol == "tcp")
