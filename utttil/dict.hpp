@@ -55,9 +55,9 @@ struct DequeDict : public std::deque<V>
 		return const_cast<V*>(const_cast<const SelfType*>(this)->find(k));
 	}
 
-	template<typename T, typename Tag>       V & get (const unique_int<T,Tag> & i)       { return get (i.value()-1); }
-	template<typename T, typename Tag> const V * find(const unique_int<T,Tag> & i) const { return find(i.value()-1); }
-	template<typename T, typename Tag>       V * find(const unique_int<T,Tag> & i)       { return find(i.value()-1); }
+	template<typename T, typename Tag>       V & get (const unique_int<T,Tag> & i)       { return get (i.value()); }
+	template<typename T, typename Tag> const V * find(const unique_int<T,Tag> & i) const { return find(i.value()); }
+	template<typename T, typename Tag>       V * find(const unique_int<T,Tag> & i)       { return find(i.value()); }
 };
 
 template<typename K, typename V>
