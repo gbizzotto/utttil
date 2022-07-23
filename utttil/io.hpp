@@ -184,7 +184,7 @@ struct context
 	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
 	std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> connect_msg(const utttil::url url)
 	{
-		std::shared_ptr<peer_msg<MsgIn,MsgOut>> peer_sptr;
+		std::shared_ptr<peer_msg<MsgIn,MsgOut,DataT>> peer_sptr;
 		if (url.protocol == "tcp")
 			peer_sptr = std::make_shared<tcp_socket_msg<MsgIn,MsgOut,DataT>>(url);
 		else if (url.protocol == "udpm")
