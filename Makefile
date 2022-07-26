@@ -103,6 +103,11 @@ perf: $(TARGET)
 
 
 loc:
+	@echo 'Code:'
+	@git ls-files | grep -E -- 'pp$$|Makefile' | grep -v -E -- '^src/test_'   | xargs wc -l | tail -n 1
+	@echo 'Tests:'
+	@git ls-files | grep -E -- 'pp$$|Makefile' | grep    -E -- '^src/test_'   | xargs wc -l | tail -n 1
+	@echo 'Total:'
 	@git ls-files | grep -E -- 'pp$$|Makefile' | xargs wc -l | tail -n 1
 
 clean:
