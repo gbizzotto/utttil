@@ -116,6 +116,9 @@ struct Hash256
 	inline bool operator==(const Hash256 & other) const {
 		return memcmp(h, other.h, 32) == 0;
 	}
+	inline bool operator!=(const Hash256 & other) const {
+		return memcmp(h, other.h, 32) != 0;
+	}
 	inline bool operator==(const unsigned char * other) const {
 		return memcmp(h, other, 32) == 0;
 	}
