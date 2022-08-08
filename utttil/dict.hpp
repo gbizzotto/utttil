@@ -3,6 +3,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "unique_int.hpp"
+#include "pool.hpp"
 
 namespace utttil {
 
@@ -61,6 +62,68 @@ struct DequeDict : public std::deque<V>
 };
 
 template<typename K, typename V>
+struct seqdict_pool
+{
+	using   seq_type = K;
+	using value_type = V;
+	using inserted_t = bool;
+	using pool_idx_t = uint32_t;
+
+	seq_type next_seq = 0;
+	utttil::fixed_pool<V> pool;
+	absl::flat_hash_map<seq_type,pool_idx_t> key_map;
+
+	seqdict_pool(uint32_t size)
+		: pool(size)
+	{}
+
+	seq_type next_key() const { return next_seq; }
+	size_t size() const { return pool.size(); }
+	std::tuple<seq_type,inserted_t> push_back(V & v)
+	{
+		value_type * inserted_v = pool.alloc(v);
+		if ( ! inserted_v)
+			return {0,false};
+		seq_type inserted_seq = next_seq++;
+		pool_idx_t pool_index = pool.index_of(inserted_v);
+		key_map.insert({inserted_seq, pool_index});
+		return {inserted_seq, true};
+	}
+	std::tuple<seq_type,inserted_t> push_back(V && v)
+	{
+		value_type * inserted_v = pool.alloc(std::move(v));
+		if ( ! inserted_v)
+			return {0,false};
+		seq_type inserted_seq = next_seq++;
+		pool_idx_t pool_index = pool.index_of(inserted_v);
+		key_map.insert({inserted_seq, pool_index});
+		return {inserted_seq, true};
+	}
+	bool contains(K k)
+	{
+		auto it = key_map.find(k);
+		return (it != key_map.end());
+	}
+	V * find(K k)
+	{
+		auto it = key_map.find(k);
+		if (it == key_map.end())
+			return nullptr;
+		return &pool.element_at(it->second);
+	}
+	bool erase(K k)
+	{
+		auto it = key_map.find(k);
+		if (it == key_map.end())
+			return false;
+		V & v = pool.element_at(it->second);
+		key_map.erase(it);
+		pool.free(&v);
+		return true;
+	}
+};
+
+template<typename K, typename V>
 struct AbslPtrDict : public absl::flat_hash_map<K,V*>
 {
 	using SelfType = AbslPtrDict;
@@ -113,6 +176,10 @@ struct AbslDict : public absl::flat_hash_map<K,V>
 		auto emplace_pair = this->try_emplace(k, v);
 		return {emplace_pair.first->second, emplace_pair.second};
 	}
+
+	template<typename T, typename Tag>       V & get (const unique_int<T,Tag> & i)       { return get (i.value()); }
+	template<typename T, typename Tag> const V * find(const unique_int<T,Tag> & i) const { return find(i.value()); }
+	template<typename T, typename Tag>       V * find(const unique_int<T,Tag> & i)       { return find(i.value()); }
 };
 
 
