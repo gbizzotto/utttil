@@ -79,19 +79,11 @@ struct seqdict_pool
 
 	seq_type next_key() const { return next_seq; }
 	size_t size() const { return pool.size(); }
-	std::tuple<seq_type,inserted_t> push_back(V & v)
+	
+	template<typename...Args>
+	std::tuple<seq_type,inserted_t> push_back(Args...args)
 	{
-		value_type * inserted_v = pool.alloc(v);
-		if ( ! inserted_v)
-			return {0,false};
-		seq_type inserted_seq = next_seq++;
-		pool_idx_t pool_index = pool.index_of(inserted_v);
-		key_map.insert({inserted_seq, pool_index});
-		return {inserted_seq, true};
-	}
-	std::tuple<seq_type,inserted_t> push_back(V && v)
-	{
-		value_type * inserted_v = pool.alloc(std::move(v));
+		value_type * inserted_v = pool.alloc(args...);
 		if ( ! inserted_v)
 			return {0,false};
 		seq_type inserted_seq = next_seq++;

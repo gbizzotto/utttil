@@ -3,6 +3,7 @@
 #include <vector>
 #include <chrono>
 #include <set>
+#include <string>
 
 #include <utttil/pool.hpp>
 #include <utttil/assert.hpp>
@@ -226,6 +227,42 @@ bool test_fuzz()
 	return true;
 }
 
+bool test_object()
+{
+	utttil::fixed_pool<std::string> pool1(16);
+	utttil::fixed_pool<std::string> pool2(1024);
+
+	std::string * p1_i1 = pool1.alloc(std::string("abc"));
+	std::string * p1_i2 = pool1.alloc("def");
+
+	std::string * p2_i1 = pool2.alloc(3, 'a');
+	std::string * p2_i2 = pool2.alloc();
+
+	ASSERT_ACT(pool1.index_of(p1_i1), ==, 0u, return false);
+	ASSERT_ACT(pool1.index_of(p1_i2), ==, 1u, return false);
+	ASSERT_ACT(&pool1.element_at(0), ==, p1_i1, return false);
+	ASSERT_ACT(&pool1.element_at(1), ==, p1_i2, return false);
+
+	ASSERT_ACT(pool2.index_of(p2_i1), ==, 0u, return false);
+	ASSERT_ACT(pool2.index_of(p2_i2), ==, 1u, return false);
+	ASSERT_ACT(&pool2.element_at(0), ==, p2_i1, return false);
+	ASSERT_ACT(&pool2.element_at(1), ==, p2_i2, return false);
+
+	pool1.free(p1_i1);
+	std::string * p1_i3 = pool1.alloc();
+	ASSERT_ACT(pool1.index_of(p1_i3), ==, 0u, return false);
+	ASSERT_ACT(&pool1.element_at(0), ==, p1_i3, return false);
+	ASSERT_ACT(&pool1.element_at(1), ==, p1_i2, return false);
+
+	pool2.free(p2_i1);
+	std::string * p2_i3 = pool2.alloc();
+	ASSERT_ACT(pool2.index_of(p2_i3), ==, 0u, return false);
+	ASSERT_ACT(&pool2.element_at(0), ==, p2_i3, return false);
+	ASSERT_ACT(&pool2.element_at(1), ==, p2_i2, return false);
+
+	return true;
+}
+
 int main()
 {
 	auto seed = time(NULL); // 1646605269;
@@ -239,6 +276,7 @@ int main()
 		&& test_contains()
 		&& test_index_of()
 		&& test_fuzz()
+		&& test_object()
 		;
 
 	if (success)

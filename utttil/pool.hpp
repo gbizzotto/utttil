@@ -48,7 +48,8 @@ struct fixed_pool
 	bool empty() const { return size_ == 0; }
 	bool full() const { return size_ == capacity_; }
 
-	T* alloc()
+	template<typename...Args>
+	T * alloc(Args...args)
 	{
 		if (full())
 			return nullptr;
@@ -57,31 +58,7 @@ struct fixed_pool
 		first_free = collection[first_free].next_index;
 		++size_;
 
-		new (result) T;
-		return result;
-	}
-	T* alloc(const T & other)
-	{
-		if (full())
-			return nullptr;
-
-		T * result = &collection[first_free].t;
-		first_free = collection[first_free].next_index;
-		++size_;
-
-		new (result) T(other);
-		return result;
-	}
-	T* alloc(T && other)
-	{
-		if (full())
-			return nullptr;
-
-		T * result = &collection[first_free].t;
-		first_free = collection[first_free].next_index;
-		++size_;
-
-		new (result) T(std::move(other));
+		new (result) T(args...);
 		return result;
 	}
 
