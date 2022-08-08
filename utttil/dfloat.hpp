@@ -247,6 +247,12 @@ bool operator==(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2
 }
 
 template<typename M1, size_t B1, typename Tag1, typename M2, size_t B2, typename Tag2>
+bool operator!=(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2,B2,Tag2> & right)
+{
+	return ! (left == right);
+}
+
+template<typename M1, size_t B1, typename Tag1, typename M2, size_t B2, typename Tag2>
 bool operator<(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2,B2,Tag2> & right)
 {
 	if (left.exponent > right.exponent)
