@@ -40,9 +40,12 @@ struct measurement
 	inline measurement(measurement_point & measurement_point)
 		:what(measurement_point)
 		,start(std::chrono::high_resolution_clock::now())
-	{}
+	{
+		asm volatile ("":::"memory"); // ensure time measurement won't be swapped with what we're measuring
+	}
 	inline ~measurement()
 	{
+		asm volatile ("":::"memory"); // ensure time measurement won't be swapped with what we're measuring
 		what.add(std::chrono::high_resolution_clock::now() - start);
 	}
 };
