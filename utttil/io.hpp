@@ -65,6 +65,7 @@ struct context
 		start_read  ();
 		start_write ();
 	}
+	void start_all   () { ta = std::thread([&](){ this->loop_all   (); }); }
 	void start_accept() { ta = std::thread([&](){ this->loop_accept(); }); }
 	void start_read  () { tr = std::thread([&](){ this->loop_read  (); }); }
 	void start_write () { tw = std::thread([&](){ this->loop_write (); }); }
@@ -274,6 +275,80 @@ struct context
 					{
 						std::cout << "erase write peer" << std::endl;
 						write_peers.erase(write_peers.begin()+i);
+					}
+					continue;
+				}
+			}
+		}
+	}
+
+	void loop_all()
+	{
+		std::vector<std::shared_ptr<peer>> accept_peers;
+		std::vector<std::shared_ptr<peer>> read_peers;
+		std::vector<std::shared_ptr<peer>> write_peers;
+		while(go_on)
+		{
+			while ( ! new_accept_peers.empty())
+			{
+				accept_peers.push_back(new_accept_peers.front());
+				new_accept_peers.pop_front();
+			}
+			for(int i=accept_peers.size() ; i>0 ; )
+			{
+				--i;
+				std::shared_ptr<peer> peer_sptr = accept_peers[i];
+				auto new_peer_sptr = peer_sptr->accept();
+				if ( ! new_peer_sptr)
+					continue;
+				else if ( ! peer_sptr->good())
+				{
+					std::cout << "erase accept peer" << std::endl;
+					accept_peers.erase(accept_peers.begin()+i);
+				}
+				std::cout << "accepted" << std::endl;
+				add(new_peer_sptr);
+			}
+			
+			while ( ! new_write_peers.empty())
+			{
+				write_peers.push_back(new_write_peers.front());
+				new_write_peers.pop_front();
+			}
+			for(int i=write_peers.size() ; i>0 ; )
+			{
+				--i;
+				std::shared_ptr<peer> peer_sptr = write_peers[i];
+				peer_sptr->pack();
+				int count = peer_sptr->write();
+				if (count < 0)
+				{
+					if ( ! peer_sptr->good())
+					{
+						std::cout << "erase write peer" << std::endl;
+						write_peers.erase(write_peers.begin()+i);
+					}
+					continue;
+				}
+			}
+
+			while ( ! new_read_peers.empty())
+			{
+				read_peers.push_back(new_read_peers.front());
+				new_read_peers.pop_front();
+			}
+			for(int i=read_peers.size() ; i>0 ; )
+			{
+				--i;
+				auto peer_sptr = read_peers[i];
+				int count = peer_sptr->read();
+				peer_sptr->unpack();
+				if (count < 0)
+				{
+					if ( ! peer_sptr->good())
+					{
+						std::cout << "erase read peer" << std::endl;
+						read_peers.erase(read_peers.begin()+i); // TODO swap with to end before erasing
 					}
 					continue;
 				}

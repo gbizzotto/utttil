@@ -20,7 +20,7 @@ bool test_2_ways(std::string url)
 	std::string recv_by_server;
 
 	utttil::io::context ctx;
-	ctx.run();
+	ctx.start_all();
 	std::cout << "Context running" << std::endl;
 
 	// server
@@ -216,7 +216,7 @@ bool test_2_ways_msg(std::string url)
 	Request recv_by_server;
 
 	utttil::io::context ctx;
-	ctx.run();
+	ctx.start_all();
 	
 	std::cout << "context running" << std::endl;
 
