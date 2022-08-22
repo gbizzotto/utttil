@@ -76,8 +76,8 @@ struct fixed_pool
 	{
 		return ptr >= &collection[0].t && ptr < &collection[capacity_].t;
 	}
-	index_t index_of(T * ptr) { return ((Obj*) ptr) - &collection[0]; }
-	index_t index_of(T & ptr) { return ((Obj*)&ptr) - &collection[0]; }
+	index_t index_of(T * ptr) const { return ((Obj*) ptr) - &collection[0]; }
+	index_t index_of(T & ptr) const { return ((Obj*)&ptr) - &collection[0]; }
 	const T & element_at(index_t idx) const
 	{
 		return collection[idx].t;
