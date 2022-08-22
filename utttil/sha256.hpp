@@ -109,8 +109,9 @@ struct Hash256
 		unsigned char h[32];
 	};
 	Hash256() = default;
-	Hash256(Hash256&) = default;
+	Hash256(const Hash256&) = default;
 	Hash256(Hash256&&) = default;
+	Hash256& operator=(Hash256&&) = default;
 	inline Hash256(int) { memset(h, 0, 32); }
 	inline void zero() { memset(h, 0, 32); };
 	inline bool operator==(const Hash256 & other) const {
