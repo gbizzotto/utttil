@@ -208,10 +208,12 @@ struct seqdict_vector
 	}
 
 	template<typename F>
-	void for_all(F f)
+	bool for_all(F f)
 	{
 		for (size_t k=1 ; k<data.size() ; ++k)
-			f((K)k, data[k]);
+			if ( ! f((K)k, data[k]))
+				return false;
+		return true;
 	}
 };
 
