@@ -30,6 +30,10 @@ struct fixed_string
 	size_t size() const { return size_; }
 	size_t size()       { return size_; }
 	void resize(size_t s) { size_ = s; }
+	const std::string_view string_view() const { return std::string_view(data_, size_); }
+	      std::string_view string_view()       { return std::string_view(data_, size_); }
+	const std::string to_string() const { return std::string(data_, data_+size_); }
+	      std::string to_string()       { return std::string(data_, data_+size_); }
 
 	fixed_string & operator=(const char * str)
 	{
@@ -84,7 +88,7 @@ struct fixed_string
 	template <typename H>
 	friend H AbslHashValue(H h, const fixed_string & s)
 	{
-		return H::combine(std::move(h), std::string_view(s.data_, s.size_));
+		return H::combine(std::move(h), s.string_view());
 	}
 
 	template<typename Rand>
@@ -98,12 +102,18 @@ struct fixed_string
 			*dst = 32 + (rand()%(256-32));
 		}
 	}
+
+	template<size_t C2, typename Tag2>
+	bool contains(const fixed_string<C2,Tag2> & other) const
+	{
+		return this->string_view().find(other.string_view()) != std::string_view::npos;
+	}
 };
 
 template<size_t C, typename T>
 std::ostream & operator<<(std::ostream & out, const fixed_string<C,T> & fs)
 {
-	return out << std::string_view(fs.data_, fs.size_);
+	return out << fs.string_view();
 }
 
 template<size_t C, typename T>
