@@ -147,7 +147,7 @@ struct dfloat
 
 		// mantissa_t is bigger than mantissa, so no overflow
 		mantissa_t result = mantissa + other.mantissa;
-		overflow = result < min_mantissa || result > max_mantissa;
+		overflow = (result < min_mantissa) | (result > max_mantissa);
 		if ( ! overflow)
 			mantissa = result;
 		return overflow;
@@ -161,7 +161,7 @@ struct dfloat
 
 		// mantissa_t is bigger than mantissa, so no overflow
 		mantissa_t result = mantissa - other.mantissa;
-		overflow = result < min_mantissa || result > max_mantissa;
+		overflow = (result < min_mantissa) | (result > max_mantissa);
 		if ( ! overflow)
 			mantissa = result;
 		return overflow;
@@ -328,6 +328,21 @@ std::ostream & operator<<(std::ostream & out, const utttil::dfloat<M,B,Tag> & df
 		buf.append(1, '-');
 	std::reverse(buf.begin(), buf.end());
 	return out << buf;
+}
+
+template<typename M1, size_t B1, typename Tag1, typename M2, size_t B2, typename Tag2>
+auto operator-(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2,B2,Tag2> & right)
+{
+	auto x = left;
+	x.sub_loss(right);
+	return x;
+}
+template<typename M1, size_t B1, typename Tag1, typename M2, size_t B2, typename Tag2>
+auto operator+(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2,B2,Tag2> & right)
+{
+	auto x = left;
+	x.add_loss(right);
+	return x;
 }
 
 } // namespace
