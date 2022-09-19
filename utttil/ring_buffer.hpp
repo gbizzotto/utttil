@@ -1,10 +1,10 @@
 
 #pragma once
 
-#include <immintrin.h>
-#include <memory>
-#include <atomic>
 #include <assert.h>
+#include <immintrin.h>
+#include <atomic>
+#include <memory>
 
 namespace utttil {
 
@@ -15,24 +15,30 @@ struct ring_buffer
 	size_t Capacity;
 	size_t Mask;
 
-	std::unique_ptr<T[]> data;
-	std::atomic_size_t front_;
-	std::atomic_size_t back_;
+	T * data;
+	size_t front_;
+	size_t back_;
 
 	ring_buffer(int size_in_bits)
 		: Capacity(1 << size_in_bits)
 		, Mask(Capacity - 1)
-		, data(std::make_unique<T[]>(Capacity))
+		, data(new T[Capacity])
 		, front_(0)
 		, back_(0)
 	{}
 	ring_buffer(ring_buffer && other)
 		: Capacity(other.Capacity)
 		, Mask    (other.Mask    )
-		, data    (std::move(other.data))
-		, front_  (other.front_.load())
-		, back_   (other.back_ .load())
-	{}
+		, data    (nullptr)
+		, front_  (other.front_)
+		, back_   (other.back_ )
+	{
+		std::swap(data, other.data);
+	}
+	~ring_buffer()
+	{
+		delete[] data;
+	}
 
 	using difference_type = std::int64_t;
 	struct iterator
@@ -81,7 +87,7 @@ struct ring_buffer
 
 	void clear()
 	{
-		front_ = back_.load();
+		front_ = back_;
 	}
 	void reset()
 	{
@@ -185,7 +191,7 @@ struct ring_buffer
 		if ((back_ & Mask) >= (front_ & Mask)) {
 			assert((front_ & Mask) <= free_size());
 			return std::make_tuple(
-					data.get(),
+					data,
 					front_ & Mask
 				);
 		} else {
@@ -233,7 +239,7 @@ struct ring_buffer
 		} else {
 			assert((back_ & Mask) < size());
 			return std::make_tuple(
-					data.get(),
+					data,
 					back_ & Mask
 				);
 		}
