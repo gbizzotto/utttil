@@ -125,7 +125,9 @@ struct ring_buffer
 	{
 		while (full())
 			_mm_pause();
-		return data[back_ & Mask];
+		T & r = data[back_ & Mask];
+		_m_prefetchw(&r);
+		return r;
 	}
 	const T & front() const
 	{
@@ -249,10 +251,20 @@ struct ring_buffer
 		assert(n <= free_size());
 		back_ += n;
 	}
+	void advance_back()
+	{
+		//assert(1 <= free_size());
+		back_ ++;
+	}
 	void advance_front(size_t n)
 	{
 		assert(n <= size());
 		front_ += n;
+	}
+
+	void prefetch_back()
+	{
+		_m_prefetchw(&data[back_ & Mask]);
 	}
 
 	T & push_back()
