@@ -28,6 +28,24 @@ bool test_add_sub_int32()
 	}
 	return success;
 }
+bool test_add_sub_int64()
+{
+	bool success = true;
+	using df = utttil::dfloat<int64_t, 5>;
+	while(go_on)
+	{
+		df a = df::rand();
+		df b = df::rand();
+		df c = a;
+		bool loss = c.add_loss(b);
+		if ( ! loss)
+		{
+			ASSERT_MSG_ACT(c.sub_loss(b), ==, false, "Overflow error", success = false);
+			ASSERT_MSG_ACT(a, ==, c, a.to_string().append(" + ").append(b.to_string()), success = false);
+		}
+	}
+	return success;
+}
 
 //bool test_mul_div_int32()
 //{
@@ -151,10 +169,14 @@ int main()
 	go_on = 1;
 	std::thread t1([&](){ success &= test_add_sub_int32(); });
 	std::thread t2([&](){ success &= test_add_sub_int32(); });
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	std::thread t3([&](){ success &= test_add_sub_int64(); });
+	std::thread t4([&](){ success &= test_add_sub_int64(); });
+	std::this_thread::sleep_for(std::chrono::seconds(5));
 	go_on = false;
 	t1.join();
 	t2.join();
+	t3.join();
+	t4.join();
 
 	return !success;
 }
