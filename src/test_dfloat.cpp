@@ -8,13 +8,13 @@
 #include "utttil/assert.hpp"
 #include "utttil/unique_int.hpp"
 
-volatile char go_on;
+bool go_on;
 
-bool test_add_int32()
+bool test_add_sub_int32()
 {
 	bool success = true;
 	using df = utttil::dfloat<int, 4>;
-	for (int i=0 ; i<10 ; i++)
+	while(go_on)
 	{
 		df a = df::rand();
 		df b = df::rand();
@@ -23,11 +23,29 @@ bool test_add_int32()
 		if ( ! loss)
 		{
 			ASSERT_MSG_ACT(c.sub_loss(b), ==, false, "Overflow error", success = false);
-			ASSERT_MSG_ACT(a, ==, c, std::string("add/sub error, i=").append(std::to_string(i)), success = false);
+			ASSERT_MSG_ACT(a, ==, c, a.to_string().append(" + ").append(b.to_string()), success = false);
 		}
 	}
 	return success;
 }
+
+//bool test_mul_div_int32()
+//{
+//	bool success = true;
+//	using df4 = utttil::dfloat<int32_t, 4>;
+//	using df8 = utttil::dfloat<int64_t, 5>;
+//	while(go_on)
+//	{
+//		df4 a = df4::rand();
+//		df4 b = df4::rand();
+//		df8 c = a * b;
+//		df8 d = c / a;
+//		df8 e = c / b;
+//		ASSERT_MSG_ACT(d, ==, b, a.to_string().append(" * ").append(b.to_string()).append(" / ").append(a.to_string()), success = false);
+//		ASSERT_MSG_ACT(e, ==, a, a.to_string().append(" * ").append(b.to_string()).append(" / ").append(b.to_string()), success = false);
+//	}
+//	return success;
+//}
 
 bool test_comp()
 {
@@ -118,20 +136,25 @@ int main()
 	ASSERT_MSG_ACT(b.add_loss(b), ==, true, "Missing overflow", success = false);
 
 	success &= test_comp();
-
-	// dfloat<int, 4> x(0, 0);
-	// dfloat<int, 4> y(192833, 11);
-	// std::cout << x << " " << y << std::endl;
-	// bool err = x.add_loss(y);
-	// std::cout << x << " " << err << std::endl;
-
-
+/*
+	utttil::dfloat<int, 4> x(21754190, 3);
+	utttil::dfloat<int, 4> y(6992, 4);
+	auto s = x;
+	bool err = x.add_loss(y);
+	std::cout << s << " + " << y << " = " << x << " " << err << std::endl;
+	std::cout << x << " - " << y << " = ";
+	err &= x.sub_loss(y);
+	std::cout << x << " " << err << std::endl;
+	if (err)
+		return 1;
+*/
 	go_on = 1;
-	std::thread t([&](){ success &= test_add_int32(); });
-	for (auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::seconds(2) ; std::chrono::high_resolution_clock::now() < timeout ; )
-		;
+	std::thread t1([&](){ success &= test_add_sub_int32(); });
+	std::thread t2([&](){ success &= test_add_sub_int32(); });
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 	go_on = false;
-	t.join();
+	t1.join();
+	t2.join();
 
 	return !success;
 }

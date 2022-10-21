@@ -7,7 +7,9 @@
 #include <assert.h>
 #include <algorithm>
 #include <type_traits>
+#include <sstream>
 
+#include "utttil/int128.hpp"
 #include "utttil/math.hpp"
 
 namespace std {
@@ -41,8 +43,12 @@ template<typename M>
 constexpr M* max_per(M max_mantissa, int max_exponent)
 {
 	M * result = new M[max_exponent+1];
+	//std::cout << "Max mantissa: " << max_mantissa << ", max_exponent" << max_exponent << std::endl;
 	for (int e = 0 ; e<=max_exponent ; e++)
+	{
 		result[e] = max_mantissa / utttil::exp<M>(10, e);
+		//std::cout << "e: " << e << ", 1o^e" << utttil::exp<M>(10, e) << ", max_exponent" << result[e] << std::endl;
+	}
 	return result;
 }
 
@@ -141,9 +147,12 @@ struct dfloat
 	template<typename M2, size_t B2, typename Tag2>
 	bool add_loss(dfloat<M2,B2,Tag2> other)
 	{
-		bool overflow = other.normalize_loss(this->exponent);
+		bool overflow = this->normalize_loss(other);
 		if (overflow)
-			overflow = this->normalize_loss(other.exponent);
+			return true;
+		//bool overflow = this->normalize_loss(other.exponent);
+		//if (overflow)
+		//	overflow = other.normalize_loss(this->exponent);
 
 		// mantissa_t is bigger than mantissa, so no overflow
 		mantissa_t result = mantissa + other.mantissa;
@@ -155,9 +164,12 @@ struct dfloat
 	template<typename M2, size_t B2, typename Tag2>
 	bool sub_loss(dfloat<M2,B2,Tag2> other)
 	{
-		bool overflow = other.normalize_loss(this->exponent);
+		bool overflow = this->normalize_loss(other);
 		if (overflow)
-			overflow = this->normalize_loss(other.exponent);
+			return true;
+		//bool overflow = this->normalize_loss(other.exponent);
+		//if (overflow)
+		//	overflow = other.normalize_loss(this->exponent);
 
 		// mantissa_t is bigger than mantissa, so no overflow
 		mantissa_t result = mantissa - other.mantissa;
@@ -166,7 +178,66 @@ struct dfloat
 			mantissa = result;
 		return overflow;
 	}
+	template<typename M2, size_t B2, typename Tag2>
+	bool normalize_loss(dfloat<M2,B2,Tag2> & other)
+	{
+		if (exponent == other.exponent)
+			return false;
+		else if (exponent > other.exponent)
+		{
+			// try mul the other first
+			bool overflow = other.mantissa > max_per_E[exponent-other.exponent];
+			if ( ! overflow)
+			{
+				other.mantissa *= utttil::exp<mantissa_t>(10, exponent-other.exponent);
+				other.exponent = exponent;
+			}
+			else
+			{
+				// alright div this then
+				mantissa_t divisor = utttil::exp<mantissa_t>(10, exponent - other.exponent);
+				bool overflow = (mantissa % divisor) != 0;
+				if ( ! overflow)
+				{
+					mantissa /= divisor;
+					exponent = other.exponent;
+				}
+			}
+			return overflow;
+		}
+		else
+		{
+			// unsigned int (0,+268435455), 4 bits exponent
 
+			// 12.3 exp=1
+			// e=4 -> 12.3000
+			// fits into mantissa_t? Yes
+
+			// 268435.455, exp=3
+			// e=8 -> 268435.45500000
+			// fits into mantissa_t? No
+
+			// try mul this first
+			bool overflow = mantissa > max_per_E[other.exponent-exponent];
+			if ( ! overflow)
+			{
+				mantissa *= utttil::exp<mantissa_t>(10, other.exponent-exponent);
+				exponent = other.exponent;
+			}
+			else
+			{
+				// alright div other then
+				mantissa_t divisor = utttil::exp<mantissa_t>(10, other.exponent - exponent);
+				overflow = (other.mantissa % divisor) != 0;
+				if ( ! overflow)
+				{
+					other.mantissa /= divisor;
+					other.exponent = exponent;
+				}
+			}
+			return overflow;
+		}
+	}
 	bool normalize_loss(exponent_t e)
 	{
 		if (exponent == e)
@@ -220,6 +291,12 @@ struct dfloat
 	static inline dfloat rand()
 	{
 		return dfloat(utttil::rand<mantissa_t>()%max_mantissa, utttil::rand<exponent_t>()%max_exponent);
+	}
+	std::string to_string() const
+	{
+		std::stringstream ss;
+		ss << *this;
+		return ss.str();
 	}
 };
 
@@ -300,7 +377,7 @@ template<typename M, size_t B,typename Tag>
 std::ostream & operator<<(std::ostream & out, const utttil::dfloat<M,B,Tag> & dfp)
 {
 	std::string buf;
-	buf.reserve(50);
+	buf.reserve(60);
 	
 	int decimal_digits = dfp.exponent;
 	auto x = dfp.mantissa;
@@ -327,6 +404,7 @@ std::ostream & operator<<(std::ostream & out, const utttil::dfloat<M,B,Tag> & df
 	if (dfp.mantissa < 0)
 		buf.append(1, '-');
 	std::reverse(buf.begin(), buf.end());
+	buf.append("(").append(std::to_string((int)dfp.exponent)).append(")");
 	return out << buf;
 }
 
