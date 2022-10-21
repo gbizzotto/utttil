@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <cassert>
+
 #include <utttil/perf.hpp>
 
 namespace utttil {
@@ -303,7 +305,7 @@ struct peer
 				break;
 			}
 			assert(deserializer.read.size() == total_size);
-			inbox_msg.advance_back(1);
+			inbox_msg.advance_back();
 			inbox.advance_front(deserializer.read.size());
 		}
 	}

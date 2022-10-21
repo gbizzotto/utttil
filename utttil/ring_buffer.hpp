@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include <assert.h>
+#include <cassert>
 #include <immintrin.h>
 #include <atomic>
 #include <memory>
@@ -253,7 +253,7 @@ struct ring_buffer
 	}
 	void advance_back()
 	{
-		//assert(1 <= free_size());
+		assert(1 <= free_size());
 		back_ ++;
 	}
 	void advance_front(size_t n)

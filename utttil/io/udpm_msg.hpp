@@ -68,7 +68,7 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 				break;
 			}
 			ASSERT_ACT(deserializer.read.size(), ==, total_size, std::cout << msg << std::endl);
-			inbox_msg.advance_back(1);
+			inbox_msg.advance_back();
 			inbox.advance_front(deserializer.read.size());
 		}
 	}

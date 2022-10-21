@@ -122,7 +122,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 				break;
 			}
 			assert(deserializer.read.size() == total_size);
-			inbox_msg.advance_back(1);
+			inbox_msg.advance_back();
 			inbox.advance_front(deserializer.read.size());
 		}
 	}

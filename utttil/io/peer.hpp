@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <cassert>
 
 #include <utttil/ring_buffer.hpp>
 #include <utttil/url.hpp>

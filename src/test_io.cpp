@@ -147,7 +147,7 @@ bool test_srv_2_cli_udpmr(std::string url, std::string url_replay)
 
 	// set up a gap
 	server_sptr->get_outbox_msg()->back() = sent_by_server;
-	server_sptr->get_outbox_msg()->advance_back(1);
+	server_sptr->get_outbox_msg()->advance_back();
 	sent_by_server.seq = 1;
 
 	// client
@@ -159,7 +159,7 @@ bool test_srv_2_cli_udpmr(std::string url, std::string url_replay)
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	server_sptr->get_outbox_msg()->back() = sent_by_server;
-	server_sptr->get_outbox_msg()->advance_back(1);
+	server_sptr->get_outbox_msg()->advance_back();
 	std::cout << __func__ << " msg sent by server" << std::endl;
 
 	while (client_sptr->get_inbox_msg()->empty())

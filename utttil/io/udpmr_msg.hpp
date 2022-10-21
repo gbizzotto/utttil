@@ -228,7 +228,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 		req.req_id = ++tcp_req_id;
 		req.begin = begin;
 		req.end   = end;
-		replay_client.get_outbox_msg()->advance_back(1);
+		replay_client.get_outbox_msg()->advance_back();
 	}
 
 	int read() override
@@ -267,7 +267,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 				}
 				next_expected_seq = f.get_last_seq();
 				++next_expected_seq;
-				buffers.advance_back(1);	
+				buffers.advance_back();	
 			}
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
 			std::cout << this->fd << " udpmr_client_msg read() good = false because of errno: " << errno << " - " << strerror(errno) << " fd: " << this->fd << std::endl;
@@ -324,7 +324,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			if (inbox_msg.free_size() < msg_count)
 				break;
 	
-			auto checkpoint = inbox_msg.back_.load();
+			auto checkpoint = inbox_msg.back_;
 			auto deserializer = utttil::srlz::from_binary(utttil::srlz::device::ptr_reader(&f.data[0], f.size));
 			try {
 				size_t msg_size;
@@ -333,14 +333,14 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 					deserializer >> msg_size;
 					auto & msg = inbox_msg.back();
 					deserializer >> msg;
-					inbox_msg.advance_back(1);
+					inbox_msg.advance_back();
 				}
 				next_ordered_seq += msg_count;
 			} catch (utttil::srlz::device::stream_end_exception &) {
 				std::cout << __FILE__ << ":" << __LINE__ << " >> failed" << std::endl;
 				std::cout << "Discarding bad frame with seq " << next_ordered_seq << std::endl;
 				//request_replay(next_ordered_seq, next_ordered_seq + msg_count);
-				inbox_msg.back_.store(checkpoint);
+				inbox_msg.back_ = checkpoint;
 			}
 			if (deserializer.read.size() != f.size)
 				std::cout << "Extraneous data in datagram" << std::endl;
@@ -444,7 +444,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 					resp.status = 2;
 					resp.available_begin  = req.end;
 					resp.available_end    = req.end;
-					replay_clients[i]->get_outbox_msg()->advance_back(1);
+					replay_clients[i]->get_outbox_msg()->advance_back();
 				}
 				else if (too_new(req.begin) || too_new(req.end))
 				{
@@ -455,7 +455,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 					resp.req_id = req.req_id;
 					resp.available_begin  = req.begin;
 					resp.available_end    = req.begin;
-					replay_clients[i]->get_outbox_msg()->advance_back(1);
+					replay_clients[i]->get_outbox_msg()->advance_back();
 				}
 				else
 				{
@@ -468,7 +468,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 						resp.req_id  = req.req_id;
 						resp.status  = 0;
 						resp.payload = *it;
-						replay_clients[i]->get_outbox_msg()->advance_back(1);
+						replay_clients[i]->get_outbox_msg()->advance_back();
 					}
 				}
 				replay_clients[i]->get_inbox_msg()->pop_front();

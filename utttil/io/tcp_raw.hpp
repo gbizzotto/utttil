@@ -154,7 +154,7 @@ struct tcp_socket_raw : peer_raw<DataT>
 		if (count > 0) {
 			outbox.advance_front(count);
 		} else if (count < 0 && errno != 0 && errno != EAGAIN) {
-			std::cout << "tcp_socket_raw sendto() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
+			std::cout << "tcp_socket_raw write() good = false because of errno: " << errno << " - " << strerror(errno) << std::endl;
 			this->good_ = false;
 		}
 		return count;

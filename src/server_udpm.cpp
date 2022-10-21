@@ -53,7 +53,7 @@ int main()
 	{
 		Request & req = server_sptr->get_outbox_msg()->back();
 		prepare_request(req);
-		server_sptr->get_outbox_msg()->advance_back(1);
+		server_sptr->get_outbox_msg()->advance_back();
 		msg_count++;
 	}
 
