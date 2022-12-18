@@ -15,4 +15,15 @@ struct Timer
 	bool OlderThan(D duration) const { return start+duration < C::now(); }
 };
 
+template<typename D, typename F>
+void do_for(D d, F f)
+{
+	for ( auto deadline = std::chrono::steady_clock::now()+d
+		; std::chrono::steady_clock::now() < deadline
+		; )
+	{
+		if ( ! f()) break;
+	}	
+}
+
 } // namespace
