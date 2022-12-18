@@ -189,14 +189,14 @@ struct dfloat
 			bool overflow = other.mantissa > max_per_E[exponent-other.exponent];
 			if ( ! overflow)
 			{
-				other.mantissa *= utttil::exp<mantissa_t>(10, exponent-other.exponent);
+				other.mantissa *= utttil::exp10(exponent-other.exponent);
 				other.exponent = exponent;
 			}
 			else
 			{
 				// alright div this then
-				mantissa_t divisor = utttil::exp<mantissa_t>(10, exponent - other.exponent);
-				bool overflow = (mantissa % divisor) != 0;
+				mantissa_t divisor = utttil::exp10(exponent - other.exponent);
+				overflow = (mantissa % divisor) != 0;
 				if ( ! overflow)
 				{
 					mantissa /= divisor;
@@ -221,13 +221,13 @@ struct dfloat
 			bool overflow = mantissa > max_per_E[other.exponent-exponent];
 			if ( ! overflow)
 			{
-				mantissa *= utttil::exp<mantissa_t>(10, other.exponent-exponent);
+				mantissa *= utttil::exp10(other.exponent-exponent);
 				exponent = other.exponent;
 			}
 			else
 			{
 				// alright div other then
-				mantissa_t divisor = utttil::exp<mantissa_t>(10, other.exponent - exponent);
+				mantissa_t divisor = utttil::exp10(other.exponent - exponent);
 				overflow = (other.mantissa % divisor) != 0;
 				if ( ! overflow)
 				{
@@ -244,10 +244,12 @@ struct dfloat
 			return false;
 		else if (exponent > e)
 		{
-			mantissa_t divisor = utttil::exp<mantissa_t>(10, exponent - e);
+			mantissa_t divisor = utttil::exp10(exponent - e);
 			bool overflow = (mantissa % divisor) != 0;
-			if ( ! overflow)
+			if ( ! overflow) {
 				mantissa /= divisor;
+				exponent = e;
+			}
 			return overflow;
 		}
 		else
@@ -265,7 +267,7 @@ struct dfloat
 			bool overflow = mantissa > max_per_E[e-exponent];
 			if ( ! overflow)
 			{
-				mantissa *= utttil::exp<mantissa_t>(10, e-exponent);
+				mantissa *= utttil::exp10(e-exponent);
 				exponent = e;
 			}
 			return overflow;
@@ -306,7 +308,7 @@ bool operator==(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2
 	if (left.exponent > right.exponent)
 	{
 		M1 reduced_left_mantissa = left.mantissa;
-		auto divisor = utttil::exp<M1>(10, left.exponent-right.exponent);
+		auto divisor = utttil::exp10(left.exponent-right.exponent);
 		bool remainder = (reduced_left_mantissa % divisor) != 0;
 		reduced_left_mantissa /= divisor;
 		return reduced_left_mantissa == right.mantissa && ! remainder;
@@ -314,7 +316,7 @@ bool operator==(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2
 	else if (left.exponent < right.exponent)
 	{
 		M1 reduced_right_mantissa = right.mantissa;
-		auto divisor = utttil::exp<M2>(10, right.exponent-left.exponent);
+		auto divisor = utttil::exp10(right.exponent-left.exponent);
 		bool remainder = (reduced_right_mantissa % divisor) != 0;
 		reduced_right_mantissa /= divisor;
 		return left.mantissa == reduced_right_mantissa && ! remainder;
@@ -335,14 +337,14 @@ bool operator<(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2,
 	if (left.exponent > right.exponent)
 	{
 		M1 reduced_left_mantissa = left.mantissa;
-		auto divisor = utttil::exp<M1>(10, left.exponent-right.exponent);
+		auto divisor = utttil::exp10(left.exponent-right.exponent);
 		reduced_left_mantissa /= divisor;
 		return reduced_left_mantissa < right.mantissa;
 	}
 	else if (left.exponent < right.exponent)
 	{
 		M1 reduced_right_mantissa = right.mantissa;
-		auto divisor = utttil::exp<M2>(10, right.exponent-left.exponent);
+		auto divisor = utttil::exp10(right.exponent-left.exponent);
 		bool remainder = (reduced_right_mantissa % divisor) != 0;
 		reduced_right_mantissa /= divisor;
 		return left.mantissa < reduced_right_mantissa || (remainder && left.mantissa == reduced_right_mantissa);
@@ -357,7 +359,7 @@ bool operator<=(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2
 	if (left.exponent > right.exponent)
 	{
 		M1 reduced_left_mantissa = left.mantissa;
-		auto divisor = utttil::exp<M1>(10, left.exponent-right.exponent);
+		auto divisor = utttil::exp10(left.exponent-right.exponent);
 		bool remainder = (reduced_left_mantissa % divisor) != 0;
 		reduced_left_mantissa /= divisor;
 		return reduced_left_mantissa < right.mantissa || (reduced_left_mantissa == right.mantissa && ! remainder);
@@ -365,7 +367,7 @@ bool operator<=(const utttil::dfloat<M1,B1,Tag1> & left, const utttil::dfloat<M2
 	else if (left.exponent < right.exponent)
 	{
 		M1 reduced_right_mantissa = right.mantissa;
-		auto divisor = utttil::exp<M2>(10, right.exponent-left.exponent);
+		auto divisor = utttil::exp10(right.exponent-left.exponent);
 		reduced_right_mantissa /= divisor;
 		return left.mantissa <= reduced_right_mantissa;
 	}
@@ -404,7 +406,7 @@ std::ostream & operator<<(std::ostream & out, const utttil::dfloat<M,B,Tag> & df
 	if (dfp.mantissa < 0)
 		buf.append(1, '-');
 	std::reverse(buf.begin(), buf.end());
-	buf.append("(").append(std::to_string((int)dfp.exponent)).append(")");
+	//buf.append("(E-").append(std::to_string((int)dfp.exponent)).append(")");
 	return out << buf;
 }
 

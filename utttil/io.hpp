@@ -155,7 +155,7 @@ struct context
 			peer_sptr = std::make_shared<udpm_client_raw<DataT>>(url);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
-			std::cout << "connect failed" << std::endl;
+			std::cout << "connect failed to " << url.to_string() << std::endl;
 			return nullptr;
 		}
 		std::cout << "connected " << url.to_string() << std::endl;
@@ -175,7 +175,7 @@ struct context
 			peer_sptr = std::make_shared<udpmr_client_msg<MsgIn,MsgOut,DataT>>(url, url_replay);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
-			std::cout << "connect failed" << std::endl;
+			std::cout << "connect failed to " << url.to_string() << std::endl;
 			return nullptr;
 		}
 		std::cout << "connected " << url.to_string() << std::endl;
@@ -192,7 +192,7 @@ struct context
 			peer_sptr = std::make_shared<udpm_client_msg<MsgIn,MsgOut,DataT>>(url);
 		if ( ! peer_sptr || ! peer_sptr->good())
 		{
-			std::cout << "connect failed" << std::endl;
+			std::cout << "connect failed to " << url.to_string() << std::endl;
 			return nullptr;
 		}
 		std::cout << "connected " << url.to_string() << std::endl;

@@ -54,7 +54,6 @@ constexpr __uint128_t lowest<__uint128_t>()
 {
 	return ((((__uint128_t(1)) << 127) - 1) << 1) + 1;
 }
-
 template<typename T>
 constexpr inline T exp(T v, size_t e)
 {
@@ -62,6 +61,33 @@ constexpr inline T exp(T v, size_t e)
 	while(e-->0)
 		r *= v;
 	return r;
+}
+inline long long exp10(long long e)
+{
+	if (e > 18)
+		return exp(10ll, e);
+    static long long a[] = {
+        (long long)1ull,
+        (long long)10ull,
+        (long long)100ull,
+        (long long)1000ull,
+        (long long)10000ull,
+        (long long)100000ull,
+        (long long)1000000ull,
+        (long long)10000000ull,
+        (long long)100000000ull,
+        (long long)1000000000ull,
+        (long long)10000000000ull,
+        (long long)100000000000ull,
+        (long long)1000000000000ull,
+        (long long)10000000000000ull,
+        (long long)100000000000000ull,
+        (long long)1000000000000000ull,
+        (long long)10000000000000000ull,
+        (long long)100000000000000000ull,
+        (long long)1000000000000000000ull,
+    };
+    return a[e];
 }
 template<typename T>
 constexpr size_t digits(T t, int base)
