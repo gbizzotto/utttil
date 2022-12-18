@@ -24,7 +24,7 @@ std::string to_string(const std::chrono::time_point<Clock> & time_point)
 	time_t tt = Clock::to_time_t(time_point);
 	tm t = *gmtime(&tt);
 	/*size_t size = */ std::sprintf(result.data(),
-			"%04u-%02u-%02uT%02u:%02u:%02u.%09ludZ",
+			"%04u-%02u-%02uT%02u:%02u:%02u.%09luZ",
 			t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec,
 			(std::uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(fraction).count()
 		);
