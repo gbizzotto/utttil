@@ -383,6 +383,9 @@ std::ostream & operator<<(std::ostream & out, const utttil::dfloat<M,B,Tag> & df
 	
 	int decimal_digits = dfp.exponent;
 	auto x = dfp.mantissa;
+	bool negative = x<0;
+	if (negative)
+		x = -x;
 	while(decimal_digits)
 	{
 		auto r = x%10;
@@ -403,7 +406,7 @@ std::ostream & operator<<(std::ostream & out, const utttil::dfloat<M,B,Tag> & df
 		buf.append(1, '0'+x%10);
 		x /= 10;
 	} while(x>0);
-	if (dfp.mantissa < 0)
+	if (negative)
 		buf.append(1, '-');
 	std::reverse(buf.begin(), buf.end());
 	//buf.append("(E-").append(std::to_string((int)dfp.exponent)).append(")");
