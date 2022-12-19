@@ -42,7 +42,7 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 
 	utttil::ring_buffer<MsgIn> * get_inbox_msg() override { return &inbox_msg; }
 
-	void unpack()
+	void unpack() override
 	{
 		auto & inbox = *raw.get_inbox();
 
