@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <limits>
 #include <type_traits>
 
 namespace utttil {
