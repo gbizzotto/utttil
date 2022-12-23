@@ -103,12 +103,9 @@ perf: $(TARGET)
 
 
 loc:
-	@echo 'Code:'
-	@git ls-files | grep -E -- 'pp$$|Makefile' | grep -v -E -- '^src/test_'   | xargs wc -l | tail -n 1
-	@echo 'Tests:'
-	@git ls-files | grep -E -- 'pp$$|Makefile' | grep    -E -- '^src/test_'   | xargs wc -l | tail -n 1
-	@echo 'Total:'
-	@git ls-files | grep -E -- 'pp$$|Makefile' | xargs wc -l | tail -n 1
+	@git ls-files              | grep -E -- 'pp$$|Makefile' | grep -v -E -- '^src/test' | grep -v -E -- '^src/io/prot' | xargs wc -l | tail -n 1 | xargs printf "Code  : %5s\n" | head -n 1
+	@git ls-files              | grep -E -- 'pp$$|Makefile' | grep    -E -- '^src/test'                                | xargs wc -l | tail -n 1 | xargs printf "Tests : %5s\n" | head -n 1
+	@git ls-files              | grep -E -- 'pp$$|Makefile'                                                            | xargs wc -l | tail -n 1 | xargs printf "%13s Total\n"    | head -n 1
 
 clean:
 	rm -rf $(OBJDIR_BASE)
