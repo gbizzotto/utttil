@@ -174,9 +174,9 @@ struct seqdict_vector
 			std::thread([&]() {
 					new_data.reserve(data.capacity() * 2);
 					for (auto & v : data)
-						new_data.push_back(v);
+						new_data.push_back(std::move(v));
 					for(auto it=data.begin()+new_data.size() ; it!=data.end() ; ++it)
-						new_data.push_back(*it);
+						new_data.push_back(std::move(*it));
 					this->resize_state = Done;
 				}).detach();
 		}
@@ -249,9 +249,10 @@ struct AbslDict : public absl::flat_hash_map<K,V>
 	using SelfType = AbslDict;
 	using Super = absl::flat_hash_map<K,V>;
 
-	V & get(const K & k)
+	template<typename...P>
+	V & get(const K & k, P... params)
 	{
-		auto emplace_pair = this->try_emplace(k, V());
+		auto emplace_pair = this->try_emplace(k, params...);
 		return emplace_pair.first->second;
 	}
 	const V * find(const K & k) const
@@ -284,7 +285,7 @@ struct BoostDict : public boost::container::flat_map<K,V>
 
 	V & get(const K & k)
 	{
-		auto emplace_pair = this->try_emplace(k, V());
+		auto emplace_pair = this->try_emplace(k);
 		return emplace_pair.first->second;
 	}
 	const V * find(const K & k) const
