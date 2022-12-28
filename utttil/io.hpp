@@ -42,7 +42,7 @@ struct context
 	std::thread ta;
 	std::thread tr;
 	std::thread tw;
-	std::atomic_bool go_on = true;
+	bool go_on = true;
 	utttil::ring_buffer<std::shared_ptr<peer>> new_accept_peers;
 	utttil::ring_buffer<std::shared_ptr<peer>> new_read_peers;
 	utttil::ring_buffer<std::shared_ptr<peer>> new_write_peers;
@@ -53,6 +53,7 @@ struct context
 		, new_read_peers  (8)
 		, new_write_peers (8)
 	{}
+	context(context&&)=default;
 
 	~context()
 	{
@@ -65,6 +66,10 @@ struct context
 		start_read  ();
 		start_write ();
 	}
+
+	template<typename Callback>
+	void start_read  (Callback c) { tr = std::thread([&](){ this->loop_read(c); }); }
+
 	void start_all   () { ta = std::thread([&](){ this->loop_all   (); }); }
 	void start_accept() { ta = std::thread([&](){ this->loop_accept(); }); }
 	void start_read  () { tr = std::thread([&](){ this->loop_read  (); }); }
@@ -227,7 +232,8 @@ struct context
 			sleep(1);
 		}
 	}
-	void loop_read()
+	template<typename Callback>
+	void loop_read(Callback callback)
 	{
 		std::vector<std::shared_ptr<peer>> read_peers;
 		while(go_on)
@@ -242,6 +248,7 @@ struct context
 				auto peer_sptr = read_peers[i];
 				int count = peer_sptr->read();
 				peer_sptr->unpack();
+				callback();
 				if (count < 0)
 				{
 					if ( ! peer_sptr->good())
@@ -253,6 +260,10 @@ struct context
 				}
 			}
 		}
+	}
+	void loop_read()
+	{
+		loop_read([](){});
 	}
 	void loop_write()
 	{

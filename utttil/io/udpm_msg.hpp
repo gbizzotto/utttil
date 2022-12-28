@@ -42,9 +42,10 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 
 	utttil::ring_buffer<MsgIn> * get_inbox_msg() override { return &inbox_msg; }
 
-	void unpack() override
+	bool unpack() override
 	{
 		auto & inbox = *raw.get_inbox();
+		auto initial_inbox_msg_position = inbox_msg.back_;
 
 		while ( ! inbox_msg.full())
 		{
@@ -71,6 +72,7 @@ struct udpm_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			inbox_msg.advance_back();
 			inbox.advance_front(deserializer.read.size());
 		}
+		return inbox_msg.back_ != initial_inbox_msg_position;
 	}
 
 	int read() override

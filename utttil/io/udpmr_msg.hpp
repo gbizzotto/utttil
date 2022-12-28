@@ -278,13 +278,14 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 	int write() override { return replay_client.write(); }
 	void pack() override {        replay_client.pack (); }
 
-	void unpack() override
+	bool unpack() override
 	{
 		// handle TCP msgs
 		replay_client.unpack();
+		auto initial_inbox_msg_position = inbox_msg.back_;
 
 		if (inbox_msg.full()) {
-			return;
+			return false;
 		}
 
 		while( ! replay_client.inbox_msg.empty())
@@ -354,6 +355,7 @@ struct udpmr_client_msg : peer_msg<MsgIn,MsgOut,DataT>
 			else
 				break;
 		}
+		return inbox_msg.back_ != initial_inbox_msg_position;
 	}
 };
 
@@ -426,11 +428,12 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 		for (int i=replay_clients.size()-1 ; i>=0 ; --i)
 			replay_clients[i]->pack();
 	}
-	void unpack() override
+	bool unpack() override
 	{
+		bool some_unpacked = false;
 		for (int i=replay_clients.size()-1 ; i>=0 ; --i)
 		{
-			replay_clients[i]->unpack();
+			some_unpacked |= replay_clients[i]->unpack();
 			if ( ! replay_clients[i]->get_inbox_msg()->empty())
 			{
 				ReplayRequest<Seq> & req = replay_clients[i]->get_inbox_msg()->front();
@@ -477,6 +480,7 @@ struct udpmr_server_msg : peer_msg<MsgIn,MsgOut,DataT>
 		if (outbox_msg.free_size() < outbox_msg.capacity()/1024) // totally arbitrary number
 			if (outbox_msg.begin() + outbox_msg.capacity()/1024 <= sent_it)
 				outbox_msg.advance_front(outbox_msg.capacity()/1024);
+		return some_unpacked;
 	}
 
 	virtual void async_send(const MsgOut & msg)

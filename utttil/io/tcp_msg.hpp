@@ -93,9 +93,10 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 			}
 		}
 	}
-	void unpack() override
+	bool unpack() override
 	{
 		auto & inbox = *raw.get_inbox();
+		auto initial_inbox_msg_position = inbox_msg.back_;
 
 		while ( ! inbox_msg.full() && ! inbox.empty())
 		{
@@ -125,6 +126,7 @@ struct tcp_socket_msg : peer_msg<MsgIn,MsgOut,DataT>
 			inbox_msg.advance_back();
 			inbox.advance_front(deserializer.read.size());
 		}
+		return inbox_msg.back_ != initial_inbox_msg_position;
 	}
 	void async_send(const MsgOut & msg) override
 	{

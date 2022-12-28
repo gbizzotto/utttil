@@ -25,7 +25,7 @@ struct peer
 	virtual inline int write()                    { assert(false); return 0; }
 	virtual inline int read ()                    { assert(false); return 0; }
 	virtual inline void   pack()                  { assert(false); }
-	virtual inline void unpack()                  { assert(false); }
+	virtual inline bool unpack()                  { assert(false); return false; }
 };
 
 template<typename DataT>
@@ -71,7 +71,7 @@ struct peer_raw : peer_data<DataT>
 	inline bool good() const override { return (fd != -1) & good_; }
 
 	void   pack() override {}
-	void unpack() override {}
+	bool unpack() override { return false; }
 
 	virtual inline void async_write(const char*, size_t) { assert(false); }
 
