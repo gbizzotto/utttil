@@ -3,6 +3,7 @@
 
 #include <thread>
 #include <vector>
+#include <memory>
 
 #include <boost/container/flat_map.hpp>
 
@@ -310,5 +311,14 @@ struct BoostDict : public boost::container::flat_map<K,V>
 	template<typename T, typename Tag>       V * find(const unique_int<T,Tag> & i)       { return find(i.value()); }
 };
 
+template<typename Collection, typename Callback>
+typename Collection::iterator remove_if_unstable(Collection & coll, Callback cb)
+{
+	auto it_end = coll.end();
+	for (size_t i=coll.size() ; i>0 ; )
+		if (cb(coll[--i]))
+			std::swap(coll[i], *--it_end);
+	return it_end;
+}
 
 } // namespace
