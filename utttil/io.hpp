@@ -248,7 +248,6 @@ struct context
 				auto peer_sptr = read_peers[i];
 				int count = peer_sptr->read();
 				peer_sptr->unpack();
-				callback();
 				if (count < 0)
 				{
 					if ( ! peer_sptr->good())
@@ -259,6 +258,7 @@ struct context
 					continue;
 				}
 			}
+			callback();
 		}
 	}
 	void loop_read()
