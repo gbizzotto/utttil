@@ -64,10 +64,9 @@ $(DEPDIR)/abseil-cpp/build/absl/numeric/libabsl_int128.a \
 $(DEPDIR)/abseil-cpp/build/absl/base/libabsl_malloc_internal.a \
 $(DEPDIR)/abseil-cpp/build/absl/base/libabsl_base.a \
 $(DEPDIR)/abseil-cpp/build/absl/base/libabsl_raw_logging_internal.a \
-$(DEPDIR)/abseil-cpp/build/absl/base/libabsl_exponential_biased.a \
-$(DEPDIR)/abseil-cpp/build/absl/base/libabsl_dynamic_annotations.a \
 $(DEPDIR)/abseil-cpp/build/absl/base/libabsl_spinlock_wait.a \
-$(DEPDIR)/abseil-cpp/build/absl/synchronization/libabsl_graphcycles_internal.a 
+$(DEPDIR)/abseil-cpp/build/absl/hash/libabsl_low_level_hash.a \
+$(DEPDIR)/abseil-cpp/build/absl/synchronization/libabsl_graphcycles_internal.a
 
 all: $(all_bins) $(all_tests)
 	
@@ -145,7 +144,7 @@ ifeq ($(PLATFORM),Darwin)
 endif
 	@if [ ! -d $(DEPDIR)"/abseil-cpp" ]; then \
 		echo "cloning https://github.com/abseil/abseil-cpp.git into "$(DEPDIR); \
-		git clone -q --branch 20200225.2 --depth 1 https://github.com/abseil/abseil-cpp.git $(DEPDIR)/abseil-cpp ; \
+		git clone -q --branch 20220623.1 --depth 1 https://github.com/abseil/abseil-cpp.git $(DEPDIR)/abseil-cpp ; \
 		cd $(DEPDIR)/abseil-cpp; \
 		mkdir -p build ; \
 		cd build ; \
