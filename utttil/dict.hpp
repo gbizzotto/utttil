@@ -252,7 +252,7 @@ struct AbslDict : public absl::flat_hash_map<K,V>
 	template<typename...P>
 	V & get(const K & k, P... params)
 	{
-		auto emplace_pair = this->try_emplace(k, params...);
+		auto emplace_pair = this->try_emplace(k, std::forward<P>(params)...);
 		return emplace_pair.first->second;
 	}
 	const V * find(const K & k) const
