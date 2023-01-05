@@ -166,7 +166,7 @@ int main()
 	if (err)
 		return 1;
 */
-	go_on = 1;
+	go_on = true;
 	std::thread t1([&](){ success &= test_add_sub_int32(); });
 	std::thread t2([&](){ success &= test_add_sub_int32(); });
 	std::thread t3([&](){ success &= test_add_sub_int64(); });
