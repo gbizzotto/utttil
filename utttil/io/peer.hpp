@@ -97,4 +97,26 @@ struct peer_msg : peer_data<DataT>
 	virtual utttil::ring_buffer<MsgIn                                        > * get_inbox_msg   () { return nullptr; }
 };
 
+template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+struct peer_msgs : peer_data<DataT>
+{
+	std::vector<std::weak_ptr<utttil::ring_buffer<MsgOut>>> outboxes;
+	bool outboxes_ready = false;
+	void add_outbox(std::shared_ptr<utttil::ring_buffer<MsgOut>> & outbox_sptr) 
+	{
+		outboxes.emplace_back(outbox_sptr);
+	}
+
+	inline static constexpr size_t accept_inbox_capacity_bits =  8;
+	inline static constexpr size_t   outbox_msg_capacity_bits = 10;
+	inline static constexpr size_t    inbox_msg_capacity_bits = 10;
+
+	virtual void async_send(const MsgOut  &) { assert(false); }
+	virtual void async_send(      MsgOut &&) { assert(false); }
+
+	virtual utttil::ring_buffer<std::shared_ptr<peer_msgs<MsgIn,MsgOut,DataT>>> * get_accept_inbox() { return nullptr; }
+	virtual utttil::ring_buffer<MsgOut                                        > * get_outbox_msg  () { return nullptr; }
+	virtual utttil::ring_buffer<MsgIn                                         > * get_inbox_msg   () { return nullptr; }
+};
+
 }} // namespace

@@ -18,6 +18,7 @@
 
 #include <utttil/io/tcp_raw.hpp>
 #include <utttil/io/tcp_msg.hpp>
+#include <utttil/io/tcp_msgs.hpp>
 #include <utttil/io/udpm_raw.hpp>
 #include <utttil/io/udpm_msg.hpp>
 #include <utttil/io/udpmr_msg.hpp>
@@ -146,6 +147,20 @@ struct context
 			return nullptr;
 		}
 		std::cout << "bound " << url.to_string() << std::endl;
+		add(peer_sptr);
+		return peer_sptr;
+	}
+	template<typename MsgIn=no_msg_t, typename MsgOut=no_msg_t, typename DataT=int>
+	std::shared_ptr<peer_msgs<MsgIn,MsgOut,DataT>> bind_msgs(const utttil::url url)
+	{
+		std::shared_ptr<peer_msgs<MsgIn,MsgOut,DataT>> peer_sptr;
+		if (url.protocol == "tcp")
+			peer_sptr = std::make_shared<tcp_server_msgs<MsgIn,MsgOut,DataT>>(url);
+		if ( ! peer_sptr || ! peer_sptr->good())
+		{
+			std::cout << "bind failed: " << strerror(errno) << std::endl;
+			return nullptr;
+		}
 		add(peer_sptr);
 		return peer_sptr;
 	}
