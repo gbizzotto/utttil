@@ -127,7 +127,7 @@ struct seqdict_vector
 {
 	using SelfType = seqdict_vector<K,V>;
 	using   seq_type = K;
-	using value_type = V;
+	//using value_type = V;
 	using inserted_t = bool;
 
 	enum resize_state_t
@@ -146,6 +146,11 @@ struct seqdict_vector
 	{
 		data.reserve(size);
 	}
+	seqdict_vector(seqdict_vector && other)
+		: data(std::move(other.data))
+		, new_data(std::move(other.new_data))
+		, resize_state(other.resize_state.load())
+	{}
 
 	seq_type next_key() const { return data.size(); }
 	size_t size() const { return data.size(); }
@@ -161,9 +166,16 @@ struct seqdict_vector
 	template<typename T, typename Tag> const V * find(const unique_int<T,Tag> & i) const { return find(i.value()); }
 	template<typename T, typename Tag>       V * find(const unique_int<T,Tag> & i)       { return find(i.value()); }
 
-	auto   begin() { return data.begin(); }
-	auto     end() { return data.  end(); }
-	auto &  back() { return data. back(); }
+	auto   begin() { return data. begin(); }
+	auto     end() { return data.   end(); }
+	auto  cbegin() { return data.cbegin(); }
+	auto    cend() { return data.  cend(); }
+	auto &  back() { return data.  back(); }
+	auto   begin() const { return data. begin(); }
+	auto     end() const { return data.   end(); }
+	auto  cbegin() const { return data.cbegin(); }
+	auto    cend() const { return data.  cend(); }
+	auto &  back() const { return data.  back(); }
 	void reserve(size_t s) { data.reserve(s); }
 
 	template<typename...Args>
@@ -216,7 +228,35 @@ struct seqdict_vector
 				return false;
 		return true;
 	}
+
+	template<typename Serializer>
+	void serialize(Serializer && s) const
+	{
+		s	<< data
+			<< new_data
+			<< resize_state.load()
+			;
+	}
+	template<typename Serializer>
+	void deserialize(Serializer && s)
+	{
+		int state;
+		s	>> data
+			>> new_data
+			>> state
+			;
+		resize_state.store(state);
+	}
 };
+
+template<typename K, typename V>
+bool operator==(const seqdict_vector<K,V> & left, const seqdict_vector<K,V> & right)
+{
+	for (auto it_left=left.begin(), it_right=right.begin() ; it_left!=left.end() && it_right!=right.end() ; it_left++,it_right++)
+		if (*it_left != *it_right)
+			return false;
+	return true;
+}
 
 template<typename K, typename V>
 struct AbslPtrDict : public absl::flat_hash_map<K,V*>
