@@ -69,6 +69,9 @@ struct dfloat
 	static inline const exponent_t   max_exponent  = utttil::max<exponent_t>() >> mantissa_bits;
 	static inline const size_t       digits        = utttil::digits(max_mantissa, 10);
 	static inline const mantissa_t * max_per_E     = max_per(max_mantissa, max_exponent);
+	static inline const dfloat       max           = dfloat(max_mantissa, 0);
+	static inline const dfloat       min           = dfloat(1, max_exponent);
+	static inline const dfloat       lowest        = dfloat(min_mantissa, 0);
 
 	mantissa_t mantissa : mantissa_bits;
 	exponent_t exponent : exponent_bits;
