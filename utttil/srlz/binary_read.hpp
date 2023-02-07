@@ -114,14 +114,32 @@ from_binary<Device> & operator>>(from_binary<Device> & deserializer, T & t)
 {
 	size_t size;
 	deserializer >> size;
-	T tmp;
+	T tmp(std::move(t));
 	while(size-->0)
 	{
 		typename T::value_type v;
 		deserializer >> v;
-		tmp.insert(tmp.cend(), v);
+		t.push_back(v);
 	}
-	t = std::move(tmp);
+	//t = std::move(tmp);
+	return deserializer;
+}
+// vector, so we can store capacity too
+template<typename Device, typename T>
+from_binary<Device> & operator>>(from_binary<Device> & deserializer, std::vector<T> & vec)
+{
+	size_t size;
+	size_t capacity;
+	deserializer >> size >> capacity;
+	std::cout << "binary_read, size: " << size << ", capacity: " << capacity << std::endl;
+	vec.clear();
+	vec.reserve(capacity);
+	while(size-->0)
+	{
+		T v;
+		deserializer >> v;
+		vec.push_back(std::move(v));
+	}
 	return deserializer;
 }
 // map, since we can't deserialize into pair<const K,V>
