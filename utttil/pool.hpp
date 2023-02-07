@@ -22,7 +22,14 @@ struct fixed_pool
 	Obj * collection;
 	index_t first_free;
 	index_t size_;
-	const index_t capacity_;
+	index_t capacity_;
+
+	explicit fixed_pool()
+		: collection(nullptr)
+		, first_free(0)
+		, size_(0)
+		, capacity_(0)
+	{}
 
 	fixed_pool(size_t capacity)
 		: collection((Obj*)malloc(sizeof(Obj) * capacity))
@@ -106,9 +113,93 @@ struct fixed_pool
 				f(collection[idx].t);
 		}
 	}
+	
+	template<typename Serializer>
+	void serialize(Serializer && s) const
+	{
+		std::vector<index_t> free_cells_idx;
+		free_cells_idx.reserve(capacity()-size());
+		index_t i = first_free;
+		for (size_t s=size() ; s>0 ; s--)
+			free_cells_idx.push_back(i);
+		std::sort(free_cells_idx.begin(), free_cells_idx.end());
+
+		s << capacity()
+		  << size();
+		for (i=0 ; i<size() ; i++)
+			if (std::find(free_cells_idx.begin(), free_cells_idx.end(), i) == free_cells_idx.end())
+				s << i
+				  << collection[i].t;
+	}
+	template<typename Deserializer>
+	void deserialize(Deserializer && s)
+	{
+		if (collection != nullptr)
+		{
+			this->~fixed_pool();
+		}
+		s >> capacity_
+		  >> size_;
+		collection = (Obj*)malloc(sizeof(Obj) * capacity_);
+		std::vector<index_t> used_cells_idx;
+		used_cells_idx.reserve(size_);
+		for (size_t i=0 ; i<size_ ; i++)
+		{
+			index_t idx;
+			s >> idx;
+			s >> collection[idx].t;
+			used_cells_idx.push_back(idx);
+		}
+		for (index_t idx=capacity_ ; idx>0 ; )
+		{
+			idx--;
+			if (std::find(used_cells_idx.begin(), used_cells_idx.end(), idx) == used_cells_idx.end())
+			{
+				collection[idx].next_index = first_free;
+				first_free = idx;
+			}
+		}
+	}
 };
 
 template<typename T> using fixed_pool_tiny  = fixed_pool<T,std::uint8_t>;
 template<typename T> using fixed_pool_large = fixed_pool<T,std::uint64_t>;
+
+template<typename T, typename Index>
+bool operator==(const fixed_pool<T,Index> & left, const fixed_pool<T,Index> & right)
+{
+	// test the basics
+	if (left.size() != right.size() || left.capacity() != right.capacity())
+		return false;
+
+	// find free cells on left
+	std::vector<Index> left_free_cells_idx;
+	left_free_cells_idx.reserve(left.capacity()-left.size());
+	auto i = left.first_free;
+	for (size_t s=left.size() ; s>0 ; s--)
+		left_free_cells_idx.push_back(i);
+	std::sort(left_free_cells_idx.begin(), left_free_cells_idx.end());
+
+	// find free cells on right
+	std::vector<Index> right_free_cells_idx;
+	right_free_cells_idx.reserve(right.capacity()-right.size());
+	i = right.first_free;
+	for (size_t s=right.size() ; s>0 ; s--)
+		right_free_cells_idx.push_back(i);
+	std::sort(right_free_cells_idx.begin(), right_free_cells_idx.end());
+
+	// compare free cells
+	for (size_t idx=0 ; idx<left_free_cells_idx.size() ; idx++)
+		if (left_free_cells_idx[idx] != right_free_cells_idx[idx])
+			return false;
+
+	// compare used cells
+	for (size_t idx=0 ; idx<left.capacity() ; idx++)
+		if (std::find(left_free_cells_idx.begin(), left_free_cells_idx.end(), i) == left_free_cells_idx.end())
+			if (left.element_at(idx) != right.element_at(idx))
+				return false;
+
+	return true;
+}
 
 } // namespace
