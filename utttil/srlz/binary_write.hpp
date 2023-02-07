@@ -114,6 +114,14 @@ to_binary<Device> & operator<<(to_binary<Device> & serializer, const std::pair<T
 	return serializer;
 }
 // collection
+template<typename Device, typename T>
+to_binary<Device> & operator<<(to_binary<Device> & serializer, const std::vector<T> & t)
+{
+	serializer << t.size() << t.capacity();
+	for (const T & v : t)
+		serializer << v;
+	return serializer;
+}
 template<typename Device
 	,typename T
 	,typename X = typename T::value_type
