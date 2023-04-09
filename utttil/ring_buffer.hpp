@@ -262,9 +262,9 @@ struct ring_buffer
 		front_ += n;
 	}
 
-	void prefetch_back()
+	void prefetch_back(size_t forward_count=1)
 	{
-		_m_prefetchw(&data[back_ & Mask]);
+		_m_prefetchw(&data[(back_+forward_count) & Mask]);
 	}
 
 	T & push_back()
