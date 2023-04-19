@@ -92,14 +92,12 @@ struct fixed_string
 	}
 
 	template<typename Rand>
-	void randomize(Rand & rand)
+	void randomize(Rand & r)
 	{
-		size_ = 0;
-		for ( char *dst = data_
-		    ; size_ < Capacity
-			; dst++,size_++ )
+		size_ = r.template next<unsigned int>() % Capacity;
+		for ( size_t i=0 ; i<size_ ; i++ )
 		{
-			*dst = 32 + (rand()%(256-32));
+			data_[i] = 32 + (r.template next<unsigned int>()%(256-32));
 		}
 	}
 

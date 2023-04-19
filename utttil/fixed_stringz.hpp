@@ -94,10 +94,15 @@ struct fixed_stringz
 	}
 
 	template<typename Rand>
-	void randomize(Rand & rand)
+	void randomize(Rand & r)
 	{
-		for (size_t i=0 ; i<Capacity ; i++)
-			data_[i] = 32 + (rand()%(128-32));
+		size_t size = r.template next<unsigned int>() % Capacity;
+		for ( size_t i=0 ; i<size ; i++ )
+		{
+			data_[i] = 32 + (r.template next<unsigned int>()%(256-32));
+		}
+		if (size < Capacity)
+			data_[size] = 0;
 	}
 };
 

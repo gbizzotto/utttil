@@ -297,6 +297,13 @@ struct dfloat
 	{
 		return dfloat(utttil::rand<mantissa_t>()%max_mantissa, utttil::rand<exponent_t>()%max_exponent);
 	}
+
+	template<typename Rand>
+	void randomize(Rand & r)
+	{
+		mantissa = (r.template next<mantissa_t>()) % max_mantissa;
+		exponent = (r.template next<exponent_t>()) % max_exponent;
+	}
 	std::string to_string() const
 	{
 		std::stringstream ss;
