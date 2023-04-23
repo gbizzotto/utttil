@@ -7,6 +7,7 @@
 #include "utttil/assert.hpp"
 #include "utttil/perf.hpp"
 #include "utttil/srlz.hpp"
+#include "utttil/random.hpp"
 
 #define STR_SIZE 64
 
@@ -34,10 +35,14 @@ bool test_integrity()
 }
 bool test_perf()
 {
+	int seed = time(NULL);
+	std::cout << seed << std::endl;
+	utttil::random_generator random(seed);
+
 	{
 		utttil::measurement_point mp("fixed_string copy");
-		utttil::fixed_stringz<STR_SIZE> fs, fs2;
-		fs.randomize(std::rand);
+		utttil::fixed_string<STR_SIZE> fs, fs2;
+		fs.randomize(random);
 		for (int i=0 ; i<100000 ; i++)
 		{
 			utttil::measurement m(mp);
@@ -46,8 +51,8 @@ bool test_perf()
 	}
 	{
 		utttil::measurement_point mp("fixed_stringz copy");
-		utttil::fixed_string<STR_SIZE> fs, fs2;
-		fs.randomize(std::rand);
+		utttil::fixed_stringz<STR_SIZE> fs, fs2;
+		fs.randomize(random);
 		for (int i=0 ; i<100000 ; i++)
 		{
 			utttil::measurement m(mp);
@@ -60,7 +65,7 @@ bool test_perf()
 		utttil::fixed_string<STR_SIZE> fs, fs2;
 		std::vector<char> buffer;
 		buffer.reserve(33);
-		fs.randomize(std::rand);
+		fs.randomize(random);
 		for (int i=0 ; i<100000 ; i++)
 		{
 			auto out = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(buffer));
@@ -82,9 +87,9 @@ bool test_perf()
 		utttil::fixed_stringz<STR_SIZE> fs, fs2;
 		std::vector<char> buffer;
 		buffer.reserve(33);
-		fs.randomize(std::rand);
 		for (int i=0 ; i<100000 ; i++)
 		{
+			fs.randomize(random);
 			auto out = utttil::srlz::to_binary(utttil::srlz::device::back_inserter(buffer));
 			{
 				utttil::measurement m(mps);
@@ -94,8 +99,9 @@ bool test_perf()
 			{
 				utttil::measurement m(mpd);
 				in >> fs2;
+				buffer.clear();
 			}
-			ASSERT_ACT(fs, ==, fs2, return false);
+			ASSERT_MSG_ACT(fs, ==, fs2, std::to_string(i), return false);
 		}
 	}
 	return true;

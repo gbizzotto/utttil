@@ -247,6 +247,13 @@ struct seqdict_vector
 			;
 		resize_state.store(state);
 	}
+	size_t serialize_size() const
+	{
+		return serialize_size(data)
+		     + serialize_size(new_data)
+		     + 1
+		     ;
+	}
 };
 
 template<typename K, typename V>

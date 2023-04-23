@@ -48,7 +48,7 @@ bool test_order()
 		const Request & r = req;
 		char buf[1024];
 		std::unique_ptr<srlz::to_binary<srlz::device::mmap_writer>> packer;
-		packer.reset(new srlz::to_binary(srlz::device::mmap_writer((volatile char *) buf)));
+		packer.reset(new srlz::to_binary(srlz::device::mmap_writer((char *) buf)));
 		(*packer) << r;
 	}
 	return true;

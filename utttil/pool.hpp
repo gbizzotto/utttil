@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <limits>
 #include <exception>
+#include <algorithm>
 
 namespace utttil {
 

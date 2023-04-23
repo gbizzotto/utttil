@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <cstdlib>
 #include <cstdlib>
+#include <variant>
 
 #include "utttil/srlz/int.hpp"
 
@@ -62,6 +63,18 @@ from_binary<Device> & operator>>(from_binary<Device> & deserializer, T & t)
 	t = integral::deserialize<T>(deserializer.read);
 	return deserializer;
 }
+// float
+template<typename Device>
+from_binary<Device> & operator>>(from_binary<Device> & deserializer, float & t)
+{
+	char * b = reinterpret_cast<char*>(&t);
+	b[0] = deserializer.read();
+	b[1] = deserializer.read();
+	b[2] = deserializer.read();
+	b[3] = deserializer.read();
+	return deserializer;
+}
+
 // serializable
 template<typename Device
 	,typename T
@@ -155,6 +168,31 @@ from_binary<Device> & operator>>(from_binary<Device> & deserializer, std::map<K,
 		t.insert(t.cend(), p);
 	}
 	return deserializer;
+}
+
+// variant
+template<typename O, size_t i, typename V>
+void fill_variant(O&, int, V&)
+{}
+template<typename O, size_t i, typename V, typename U, typename...T>
+void fill_variant(O & o, int idx, V & v)
+{
+	if (i == idx)
+	{
+		U value;
+		o >> value;
+		v.template emplace<i>(value);
+	}
+	else 
+		fill_variant<O, i+1, V, T...>(o, idx, v);
+}
+template<typename O, typename T, typename...Ts>
+O & operator>>(O & os, std::variant<T,Ts...>& v)
+{
+	uint8_t idx;
+	os >> idx;
+ 	fill_variant<O, 0, std::variant<T,Ts...>, T, Ts...>(os, idx, v);
+    return os;
 }
 
 }} // namespace

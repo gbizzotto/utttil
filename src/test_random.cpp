@@ -50,8 +50,8 @@ bool test_random_generator()
 
 	for (size_t i=0 ; i<1000000 ; i++)
 	{
-		auto v1 = random1.next_variant<int,float,std::string,mystruct>();
-		auto v2 = random2.next_variant<int,float,std::string,mystruct>();
+		auto v1 = random1.next<std::variant<int,float,std::string,mystruct>>();
+		auto v2 = random2.next<std::variant<int,float,std::string,mystruct>>();
 		ASSERT_MSG_ACT(v1, ==, v2, std::to_string(v1.index()), return false);
 	}
 

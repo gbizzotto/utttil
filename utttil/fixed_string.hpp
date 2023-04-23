@@ -6,6 +6,8 @@
 #include <cstring>
 #include <exception>
 
+#include <utttil/srlz.hpp>
+
 namespace utttil {
 
 struct fixed_string_default_tag {};
@@ -82,6 +84,12 @@ struct fixed_string
 		char * dst = data_;
 		for (size_t i=0 ; i<size_ ; i++)
 			*(dst++) = s.read();
+	}
+	size_t serialize_size() const
+	{
+		return utttil::srlz::serialize_size(size_)
+		     + utttil::srlz::serialize_size(data_)
+		     ;
 	}
 
 	// for abseil flat_has_map/set

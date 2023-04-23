@@ -20,7 +20,7 @@ struct to_binary
 	{}
 };
 
-// POD struct/class
+// POD struct/class without serialize function
 template<typename Device
 	,typename T
 	,typename std::enable_if<std::is_class<T>{},int>::type = 0
@@ -74,6 +74,16 @@ to_binary<Device> & operator<<(to_binary<Device> & serializer, __uint128_t t)
 	size_t s = integral::serialize(t, buf);
 	for (size_t i=0 ; i<s ; i++)
 		serializer.write(buf[i]);
+	return serializer;
+}
+template<typename Device>
+to_binary<Device> & operator<<(to_binary<Device> & serializer, float t)
+{
+	char * b = reinterpret_cast<char*>(&t);
+	serializer.write(b[0]);
+	serializer.write(b[1]);
+	serializer.write(b[2]);
+	serializer.write(b[3]);
 	return serializer;
 }
 
@@ -132,6 +142,15 @@ to_binary<Device> & operator<<(to_binary<Device> & serializer, const T & t)
 	for (const typename T::value_type & v : t)
 		serializer << v;
 	return serializer;
+}
+
+// variant
+template<typename O, typename T, typename... Ts>
+O & operator<<(O & os, const std::variant<T, Ts...>& v)
+{
+	os << (uint8_t) v.index();
+	std::visit([&os](auto&& arg) { os << arg; }, v);
+	return os;
 }
 
 // support for std::endl and other modifiers

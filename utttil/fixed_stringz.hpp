@@ -75,6 +75,7 @@ struct fixed_stringz
 	{
 		for (size_t i=0 ; i<Capacity && data_[i] != 0 ; i++)
 			s.write(data_[i]);
+		s.write((char)0);
 	}
 	template<typename Deserializer>
 	void deserialize(Deserializer && s)
@@ -84,6 +85,10 @@ struct fixed_stringz
 			if (data_[i] == 0)
 				break;
 		}
+	}
+	size_t serialize_size() const
+	{
+		return serialize_size(data);
 	}
 
 	// for abseil flat_has_map/set

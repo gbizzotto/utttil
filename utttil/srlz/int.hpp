@@ -29,6 +29,7 @@ size_t serialize(T t, char * buf)
 		t >>= 7;
 	}while(t != 0 && t != (T)-1);
 
+	// set stop bit on lowest part
 	b[0] |= 0x80;
 
 	if (t == (T)-1 && ((*(buf-1)) & 0x40) == 0)
@@ -48,6 +49,69 @@ size_t serialize(T t, char * buf)
 
 	std::reverse(b, buf);
 	return buf-b;
+}
+
+template<typename T
+	,typename std::enable_if<
+		std::disjunction<
+			std::is_same<T,__int128_t>,
+			std::is_same<T,__uint128_t>
+		>{},int
+	>::type = 0
+>
+size_t serialize_size(T t)
+{
+	return 1
+		+ (t >= ((T)1<<  7))
+		+ (t >= ((T)1<< 14))
+		+ (t >= ((T)1<< 21))
+		+ (t >= ((T)1<< 28))
+		+ (t >= ((T)1<< 35))
+		+ (t >= ((T)1<< 42))
+		+ (t >= ((T)1<< 49))
+		+ (t >= ((T)1<< 56))
+		+ (t >= ((T)1<< 63))
+		+ (t >= ((T)1<< 70))
+		+ (t >= ((T)1<< 77))
+		+ (t >= ((T)1<< 84))
+		+ (t >= ((T)1<< 91))
+		+ (t >= ((T)1<< 98))
+		+ (t >= ((T)1<<105))
+		+ (t >= ((T)1<<112))
+		+ (t >= ((T)1<<119))
+		+ (t >= ((T)1<<126))
+		;
+}
+template<typename T
+	,typename std::enable_if<std::is_integral<T>{},int>::type = 0
+	,typename std::enable_if<(sizeof(T) == 8),int>::type = 0
+>
+size_t serialize_size(T t)
+{
+	return 1
+		+ (t >= ((T)1<<  7))
+		+ (t >= ((T)1<< 14))
+		+ (t >= ((T)1<< 21))
+		+ (t >= ((T)1<< 28))
+		+ (t >= ((T)1<< 35))
+		+ (t >= ((T)1<< 42))
+		+ (t >= ((T)1<< 49))
+		+ (t >= ((T)1<< 56))
+		+ (t >= ((T)1<< 63))
+		;
+}
+template<typename T
+	,typename std::enable_if<std::is_integral<T>{},int>::type = 0
+	,typename std::enable_if<(sizeof(T) <= 4),int>::type = 0
+>
+size_t serialize_size(T t)
+{
+	return 1
+		+ (t >= ((T)1<<  7))
+		+ (t >= ((T)1<< 14))
+		+ (t >= ((T)1<< 21))
+		+ (t >= ((T)1<< 28))
+		;
 }
 
 template<typename T, typename std::enable_if<std::is_integral<T>{},int>::type = 0>

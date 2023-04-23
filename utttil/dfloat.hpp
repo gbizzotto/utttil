@@ -11,6 +11,7 @@
 
 #include "utttil/int128.hpp"
 #include "utttil/math.hpp"
+#include "utttil/srlz/binary_write_size.hpp"
 
 namespace std {
 	template<>
@@ -291,6 +292,12 @@ struct dfloat
 		s >> (mantissa_t&)m >> (exponent_t&)e;
 		mantissa = m;
 		exponent = e;
+	}
+	size_t serialize_size() const
+	{
+		return utttil::srlz::serialize_size((M)mantissa)
+		     + utttil::srlz::serialize_size((M)exponent)
+		     ;
 	}
 
 	static inline dfloat rand()

@@ -62,13 +62,17 @@ struct mmap_reader
 	{
 		return *c++;
 	}
+	void reset(volatile char * c_)
+	{
+		c = c_;
+	}
 };
 struct mmap_writer
 {
-	volatile char * c;
-	volatile char * begin_ptr;
-	inline mmap_writer(volatile char * c)
-		: c(c)
+	char * c;
+	void * begin_ptr;
+	inline mmap_writer(void * c)
+		: c((char*)c)
 		, begin_ptr(c)
 	{}
 	inline void operator()(char v)
@@ -76,7 +80,7 @@ struct mmap_writer
 		*c++ = v;
 	}
 	inline void flush() {}
-	inline size_t size() const { return std::distance(begin_ptr, c); }
+	inline size_t size() const { return std::distance((char*)begin_ptr, c); }
 };
 struct ptr_reader
 {
